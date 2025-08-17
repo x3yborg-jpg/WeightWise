@@ -5,13 +5,13 @@ import { getDatabase } from "firebase/database";
 // Replace with your own Firebase project configuration, which you can find
 // in your Firebase project settings.
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  "projectId": "weightwise-dashboard-gboph",
+  "appId": "1:458844112873:web:d7824a7a297eaf9485ad78",
+  "storageBucket": "weightwise-dashboard-gboph.firebasestorage.app",
+  "apiKey": "AIzaSyDh2UnT4NKyaMF8fDwNFnhqSWKiFi305rE",
+  "authDomain": "weightwise-dashboard-gboph.firebaseapp.com",
+  "databaseURL": "https://weightwise-dashboard-gboph-default-rtdb.firebaseio.com",
+  "messagingSenderId": "458844112873"
 };
 
 // Initialize Firebase
