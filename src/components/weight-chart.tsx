@@ -10,7 +10,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
-import { type LoadCellData } from "@/hooks/use-loadcell-data"
+import { type LoadCellData, MAX_DATA_POINTS } from "@/hooks/use-loadcell-data"
 
 interface WeightChartProps {
   data: LoadCellData[];
@@ -65,11 +65,10 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
           <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-muted/30" />
           <XAxis
             dataKey="index"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            tickFormatter={() => ""} // Hide the labels
             type="number"
+            domain={[0, MAX_DATA_POINTS - 1]} // Fixed domain for the scrolling effect
+            tick={false} // Hide ticks
+            axisLine={false} // Hide axis line
           />
            <YAxis
             tickLine={false}

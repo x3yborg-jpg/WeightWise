@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { ref, onValue, off } from 'firebase/database';
 import { database } from '@/lib/firebase';
 
-const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
+export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds
 const MAX_WEIGHT_G = 10000; // 10kg in grams
 
@@ -101,7 +101,7 @@ export function useLoadcellData() {
       // Pre-fill with some initial data
       const initialData: LoadCellData[] = [];
       let lastData: LoadCellData | undefined = undefined;
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < MAX_DATA_POINTS; i++) {
         lastData = generateSampleData(lastData);
         initialData.push(lastData);
       }
