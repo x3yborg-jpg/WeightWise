@@ -176,7 +176,7 @@ export function Dashboard() {
            {isConnected && data ? (
               <div className="flex items-center gap-2 text-green-400">
                 <Wifi className="h-4 w-4 animate-pulse" />
-                <span>Device Online - Last update: {new Date(data.timestamp).toLocaleString()}</span>
+                <span>Device Online</span>
               </div>
            ) : (
              !isConnected && !loading && (
