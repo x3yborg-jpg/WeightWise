@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 
 interface LevelGaugeProps {
   level: number;
+  size?: number;
 }
 
-export function LevelGauge({ level }: LevelGaugeProps) {
+export function LevelGauge({ level, size = 200 }: LevelGaugeProps) {
   const [displayLevel, setDisplayLevel] = useState(0);
 
   useEffect(() => {
@@ -15,8 +16,7 @@ export function LevelGauge({ level }: LevelGaugeProps) {
     return () => cancelAnimationFrame(id);
   }, [level]);
 
-  const size = 200;
-  const strokeWidth = 12;
+  const strokeWidth = size * 0.06; // 6% of size
   const center = size / 2;
   const radius = center - strokeWidth / 2;
   const circumference = 2 * Math.PI * radius;
@@ -74,9 +74,9 @@ export function LevelGauge({ level }: LevelGaugeProps) {
         />
       </svg>
       <div className="absolute flex flex-col items-center justify-center">
-        <span className="text-5xl font-bold font-heading text-foreground transition-colors duration-500" style={{color: progressColor}}>
+        <span className="font-bold font-heading text-foreground transition-colors duration-500" style={{color: progressColor, fontSize: `${size * 0.25}px`}}>
           {Math.round(displayLevel)}
-          <span className="text-3xl text-muted-foreground">%</span>
+          <span className="text-muted-foreground" style={{fontSize: `${size * 0.15}px`}}>%</span>
         </span>
       </div>
     </div>
