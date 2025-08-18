@@ -105,9 +105,6 @@ void loop() {
 void updateConnectionStatus(bool status) {
   FirebaseJson json;
   json.set("isConnected", status);
-  
-  // Also update timestamp to show last connection time
-  json.set("timestamp/.sv", "timestamp"); 
 
   Serial.printf("Updating connection status to: %s\n", status ? "Online" : "Offline");
   
@@ -130,7 +127,6 @@ void sendSensorData() {
   FirebaseJson json;
   json.set("weight", weight);
   json.set("level", level);
-  json.set("timestamp/.sv", "timestamp"); // Use server value for timestamp
   json.set("isConnected", true);
 
   // Update the root node in Firebase
@@ -153,4 +149,4 @@ void sendSensorData() {
 4.  **Upload the code** to your ESP32.
 5.  **Open the Serial Monitor** at a baud rate of `115200` to see the log messages.
 
-The ESP32 will now push sensor data to the root of your Firebase Realtime Database every 5 seconds.
+The ESP32 will now push sensor data to the root of your Firebase Realtime Database every 5 seconds. The web app will automatically add a timestamp when it receives the data.

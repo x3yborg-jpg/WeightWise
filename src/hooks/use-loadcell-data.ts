@@ -46,17 +46,22 @@ export function useLoadcellData() {
       if (snapshot.exists()) {
         setIsDemoMode(false);
         const val = snapshot.val();
+        // Client will add the timestamp, it's no longer expected from firebase
         if (
           typeof val.weight === 'number' && 
           typeof val.level === 'number' && 
-          typeof val.timestamp === 'number' &&
           typeof val.isConnected === 'boolean'
         ) {
           setIsConnected(val.isConnected);
           
           if(val.isConnected) {
+            const newDataPoint: LoadCellData = {
+              ...val,
+              timestamp: Date.now() // Add timestamp on arrival
+            };
+
             setDataHistory((prevHistory) => {
-              const newHistory = [...prevHistory, val];
+              const newHistory = [...prevHistory, newDataPoint];
               if (newHistory.length > MAX_DATA_POINTS) {
                 return newHistory.slice(newHistory.length - MAX_DATA_POINTS);
               }
@@ -66,7 +71,7 @@ export function useLoadcellData() {
           setError(null);
         } else {
           setIsConnected(false);
-          setError("Received invalid data structure from Firebase. Expected { weight: number, level: number, timestamp: number, isConnected: boolean } at the root.");
+          setError("Received invalid data structure from Firebase. Expected { weight: number, level: number, isConnected: boolean } at the root.");
         }
       } else {
          setError("No data found at the root of your database. Displaying demo data. Connect a device to see live data.");
