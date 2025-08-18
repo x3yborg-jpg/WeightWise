@@ -1,17 +1,14 @@
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getDatabase } from "firebase/database";
 
-// IMPORTANT: This is a placeholder configuration.
-// Replace with your own Firebase project configuration, which you can find
-// in your Firebase project settings.
 const firebaseConfig = {
-  "projectId": "weightwise-dashboard-gboph",
-  "appId": "1:458844112873:web:d7824a7a297eaf9485ad78",
-  "storageBucket": "weightwise-dashboard-gboph.firebasestorage.app",
-  "apiKey": "AIzaSyDh2UnT4NKyaMF8fDwNFnhqSWKiFi305rE",
-  "authDomain": "weightwise-dashboard-gboph.firebaseapp.com",
-  "databaseURL": "https://weightwise-dashboard-gboph-default-rtdb.firebaseio.com",
-  "messagingSenderId": "458844112873"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
 // Initialize Firebase
