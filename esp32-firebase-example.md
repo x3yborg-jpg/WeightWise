@@ -1,7 +1,7 @@
 
 # ESP32 Code for Firebase Realtime Database
 
-This example code is for an ESP32 microcontroller to read data from a load cell (simulated) and an ultrasonic sensor (simulated), and then push that data to the root of a Firebase Realtime Database.
+This example code is for an ESP32 microcontroller to read data from a load cell (simulated) and an ultrasonic sensor (simulated), and then push that data to the root of a Firebase Realtime Database. The maximum weight is considered to be 10kg.
 
 ## Prerequisites
 
@@ -26,13 +26,16 @@ This example code is for an ESP32 microcontroller to read data from a load cell 
 
 // --- SENSOR SIMULATION ---
 // Replace these with your actual sensor reading functions
+
+// Simulates a weight reading from a load cell, up to 10000g (10kg)
 float getSimulatedWeight() {
-  // Simulate a weight reading, e.g., between 100g and 2000g
-  return random(100, 2000); 
+  return random(500, 10000); 
 }
 
+// Simulates a level reading from an ultrasonic sensor.
+// You would replace this with logic to convert distance to a percentage.
+// For example: `level = map(distance, min_dist, max_dist, 100, 0);`
 int getSimulatedLevel() {
-  // Simulate a level reading, e.g., between 0% and 100%
   return random(0, 100);
 }
 
@@ -44,6 +47,11 @@ FirebaseConfig config;
 // --- STATE VARIABLES ---
 unsigned long sendDataPrevMillis = 0;
 bool isConnected = false;
+
+// Function Prototypes
+void updateConnectionStatus(bool status);
+void sendSensorData();
+
 
 void setup() {
   Serial.begin(115200);
@@ -84,7 +92,7 @@ void loop() {
   // If connection status changes, update Firebase
   if (currentWifiStatus != isConnected) {
     isConnected = currentWifiStatus;
-    updateConnectionStatus();
+    updateConnectionStatus(isConnected);
   }
 
   // Send sensor data every 5 seconds if connected
@@ -94,14 +102,14 @@ void loop() {
   }
 }
 
-void updateConnectionStatus() {
+void updateConnectionStatus(bool status) {
   FirebaseJson json;
-  json.set("isConnected", isConnected);
+  json.set("isConnected", status);
   
   // Also update timestamp to show last connection time
   json.set("timestamp/.sv", "timestamp"); 
 
-  Serial.printf("Updating connection status to: %s\n", isConnected ? "Online" : "Offline");
+  Serial.printf("Updating connection status to: %s\n", status ? "Online" : "Offline");
   
   // Update only the isConnected and timestamp fields at the root
   if (Firebase.updateNode(fbdo, "/", json)) {
@@ -133,7 +141,6 @@ void sendSensorData() {
     Serial.println("REASON: " + fbdo.errorReason());
   }
 }
-
 ```
 
 ### How to Use
@@ -142,7 +149,8 @@ void sendSensorData() {
 2.  **Replace the placeholders**:
     *   `YOUR_WIFI_SSID` and `YOUR_WIFI_PASSWORD` with your network credentials.
     *   `YOUR_FIREBASE_API_KEY` and `YOUR_FIREBASE_DATABASE_URL` with the credentials from your Firebase project.
-3.  **Upload the code** to your ESP32.
-4.  **Open the Serial Monitor** at a baud rate of `115200` to see the log messages.
+3.  **Implement your sensor logic**: Replace the `getSimulatedWeight()` and `getSimulatedLevel()` functions with your actual sensor reading code.
+4.  **Upload the code** to your ESP32.
+5.  **Open the Serial Monitor** at a baud rate of `115200` to see the log messages.
 
-The ESP32 will now push simulated sensor data to the root of your Firebase Realtime Database every 5 seconds.
+The ESP32 will now push sensor data to the root of your Firebase Realtime Database every 5 seconds.

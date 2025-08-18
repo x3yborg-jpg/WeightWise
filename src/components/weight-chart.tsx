@@ -1,28 +1,30 @@
 "use client"
 
 import * as React from "react"
-import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Area, AreaChart } from "recharts"
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts"
 import { format } from "date-fns"
 
 import {
   ChartContainer,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
-import { LoadCellData } from "@/hooks/use-loadcell-data"
+import { CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
+import { type LoadCellData } from "@/hooks/use-loadcell-data"
 
 interface WeightChartProps {
   data: LoadCellData[]
 }
 
 export function WeightChart({ data }: WeightChartProps) {
+  // Determine the unit based on the maximum weight in the current dataset
+  const maxWeight = Math.max(...data.map(item => item.weight), 0);
+  const unit = maxWeight >= 1000 ? 'kg' : 'g';
+
   const chartData = data.map(item => ({
     time: item.timestamp,
-    weight: item.weight >= 1000 ? item.weight / 1000 : item.weight,
-    unit: item.weight >= 1000 ? 'kg' : 'g',
+    // Consistently use the determined unit for all points in the chart
+    weight: unit === 'kg' ? item.weight / 1000 : item.weight,
   }));
-
-  const unit = chartData.length > 0 ? chartData[chartData.length-1].unit : 'g';
 
   const chartConfig = {
     weight: {
@@ -32,7 +34,19 @@ export function WeightChart({ data }: WeightChartProps) {
   }
 
   // Ensure there's always at least one data point to prevent crashes
-  const safeChartData = chartData.length > 0 ? chartData : [{time: Date.now(), weight: 0, unit: 'g'}];
+  const safeChartData = chartData.length > 0 ? chartData : [{time: Date.now(), weight: 0}];
+
+  // Set a dynamic domain for the Y-axis
+  const yAxisDomain = [
+    0,
+    (dataMax: number) => {
+      // If we are in kg, the max can be 10. Otherwise, it can be 10000g.
+      // Give a little buffer (e.g., 20%) to the max value for better visualization.
+      const buffer = unit === 'kg' ? 1 : 100;
+      const upperLimit = unit === 'kg' ? 10 : 10000;
+      return Math.min(Math.max(dataMax * 1.2, buffer), upperLimit);
+    }
+  ];
 
 
   return (
@@ -40,7 +54,7 @@ export function WeightChart({ data }: WeightChartProps) {
        <CardHeader className="items-start p-6">
         <CardTitle className="font-heading tracking-tight">Weight Over Time</CardTitle>
         <CardDescription>
-          A real-time view of the load cell weight readings.
+          A real-time view of the load cell readings. Max capacity: 10kg.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-2 pt-0">
@@ -69,7 +83,7 @@ export function WeightChart({ data }: WeightChartProps) {
               axisLine={false}
               tickMargin={8}
               tickCount={6}
-              domain={['auto', 'auto']}
+              domain={yAxisDomain}
               tickFormatter={(value) => `${value}`}
               width={30}
             />
@@ -92,7 +106,7 @@ export function WeightChart({ data }: WeightChartProps) {
                   <div className="flex items-baseline gap-2">
                      <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: chartConfig.weight.color}}></div>
                      <span className="text-muted-foreground">Weight:</span>
-                     <span className="font-bold text-foreground">{`${item.payload.weight.toFixed(2)} ${item.payload.unit}`}</span>
+                     <span className="font-bold text-foreground">{`${item.payload.weight.toFixed(2)} ${unit}`}</span>
                   </div>
                 )}
                  />}

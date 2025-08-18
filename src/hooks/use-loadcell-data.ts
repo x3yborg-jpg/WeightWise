@@ -6,6 +6,7 @@ import { database } from '@/lib/firebase';
 
 const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds
+const MAX_WEIGHT_G = 10000; // 10kg in grams
 
 export interface LoadCellData {
   weight: number;
@@ -19,11 +20,12 @@ const generateSampleData = (lastData?: LoadCellData): LoadCellData => {
   const lastWeight = lastData?.weight ?? 500;
   const lastLevel = lastData?.level ?? 50;
 
-  const newWeight = lastWeight + (Math.random() - 0.5) * 50;
-  const newLevel = Math.max(0, Math.min(100, lastLevel + (Math.random() - 0.5) * 10));
+  // Simulate a weight change, e.g., +/- 500g
+  const newWeight = lastWeight + (Math.random() - 0.5) * 1000;
+  const newLevel = Math.max(0, Math.min(100, lastLevel + (Math.random() - 0.45) * 10)); // Tend to fill up slightly
 
   return {
-    weight: Math.max(0, newWeight),
+    weight: Math.max(0, Math.min(MAX_WEIGHT_G, newWeight)), // Ensure weight is between 0 and 10kg
     level: newLevel,
     timestamp: Date.now(),
     isConnected: true, // For demo purposes, we'll assume it's connected

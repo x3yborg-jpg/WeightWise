@@ -6,7 +6,7 @@ import { LevelGauge } from '@/components/level-gauge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, WifiOff, Wifi, Power } from 'lucide-react';
+import { AlertTriangle, WifiOff, Wifi, Power, Waves } from 'lucide-react';
 import { WeightChart } from './weight-chart';
 import { Separator } from './ui/separator';
 
@@ -15,8 +15,8 @@ function DashboardSkeleton() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <Card className="lg:col-span-1 bg-card/50 backdrop-blur-sm border-dashed">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Level</CardTitle>
-            <Power className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Container Level</CardTitle>
+            <Waves className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent className="flex items-center justify-center pt-6">
              <Skeleton className="h-[200px] w-[200px] rounded-full" />
@@ -24,7 +24,7 @@ function DashboardSkeleton() {
       </Card>
       <Card className="lg:col-span-1 bg-card/50 backdrop-blur-sm border-dashed">
          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Weight</CardTitle>
+            <CardTitle className="text-sm font-medium">Current Weight</CardTitle>
             <Power className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
          <CardContent className="flex flex-col items-center justify-center pt-10 gap-2">
@@ -76,8 +76,8 @@ export function Dashboard() {
 
         <Card className={`lg:col-span-1 bg-card/50 backdrop-blur-sm transition-opacity duration-500 ${!isConnected ? 'opacity-30' : 'opacity-100'}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Level</CardTitle>
-                <Power className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Container Level</CardTitle>
+                <Waves className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent className="flex items-center justify-center pt-6">
                 <LevelGauge level={data?.level ?? 0} />
@@ -86,7 +86,7 @@ export function Dashboard() {
 
         <Card className={`lg:col-span-1 bg-card/50 backdrop-blur-sm transition-opacity duration-500 ${!isConnected ? 'opacity-30' : 'opacity-100'}`}>
              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Weight</CardTitle>
+                <CardTitle className="text-sm font-medium">Current Weight</CardTitle>
                 <Power className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent className="flex items-center justify-center pt-6">
