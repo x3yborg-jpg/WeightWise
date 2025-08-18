@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -66,7 +67,7 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
             tickLine={false}
             axisLine={false}
             tickMargin={8}
-            tickFormatter={(value) => format(new Date(value), isModal ? "HH:mm:ss" : "HH:mm")}
+            tickFormatter={() => ""} // Hide the labels
             type="number"
             domain={['dataMin', 'dataMax']}
           />
