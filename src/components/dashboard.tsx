@@ -15,6 +15,7 @@ import { Button } from './ui/button';
 function DashboardSkeleton() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Level Card Skeleton */}
       <Card className="lg:col-span-1 bg-card/50 backdrop-blur-sm border-dashed">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Container Level</CardTitle>
@@ -24,7 +25,9 @@ function DashboardSkeleton() {
              <Skeleton className="h-[200px] w-[200px] rounded-full" />
         </CardContent>
       </Card>
-      <Card className="lg:col-span-1 bg-card/50 backdrop-blur-sm border-dashed">
+
+      {/* Weight Card Skeleton */}
+      <Card className="lg:col-span-2 bg-card/50 backdrop-blur-sm border-dashed">
          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Current Weight</CardTitle>
             <Power className="h-4 w-4 text-muted-foreground" />
@@ -34,6 +37,8 @@ function DashboardSkeleton() {
             <Skeleton className="h-6 w-32" />
         </CardContent>
       </Card>
+      
+      {/* Chart Card Skeleton */}
       <Card className="lg:col-span-3 bg-card/50 backdrop-blur-sm border-dashed">
         <CardHeader className="flex flex-row items-start p-6">
             <div className="flex-1">
@@ -84,13 +89,13 @@ export function Dashboard() {
 
         {/* Level Gauge Card & Modal */}
         <Dialog open={openModal === 'level'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
-            <DialogTrigger asChild>
+            <DialogTrigger asChild onClick={() => setOpenModal('level')}>
                 <Card className={`${cardBaseClasses} ${cardOpacityClass} lg:col-span-1`}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Container Level</CardTitle>
                         <Waves className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent className="flex items-center justify-center pt-6">
+                    <CardContent className="flex items-center justify-center pt-6 min-h-[224px]">
                         <LevelGauge level={data?.level ?? 0} />
                     </CardContent>
                      <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -114,8 +119,8 @@ export function Dashboard() {
 
         {/* Weight Display Card & Modal */}
          <Dialog open={openModal === 'weight'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
-            <DialogTrigger asChild>
-                <Card className={`${cardBaseClasses} ${cardOpacityClass} lg:col-span-1`}>
+            <DialogTrigger asChild onClick={() => setOpenModal('weight')}>
+                <Card className={`${cardBaseClasses} ${cardOpacityClass} lg:col-span-2`}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Current Weight</CardTitle>
                         <Power className="h-4 w-4 text-muted-foreground" />
@@ -143,7 +148,7 @@ export function Dashboard() {
 
          {/* Weight Chart Card & Modal */}
         <Dialog open={openModal === 'chart'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
-             <DialogTrigger asChild>
+             <DialogTrigger asChild onClick={() => setOpenModal('chart')}>
                 <Card className={`${cardBaseClasses} ${cardOpacityClass} lg:col-span-3`}>
                     <div className="relative">
                         <WeightChart data={history} />

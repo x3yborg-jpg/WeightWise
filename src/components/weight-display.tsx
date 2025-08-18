@@ -8,9 +8,13 @@ interface WeightDisplayProps {
 }
 
 const useAnimatedCounter = (targetValue: number, duration: number = 800) => {
-  const [displayValue, setDisplayValue] = useState(targetValue);
+  const [displayValue, setDisplayValue] = useState(0);
   const frameRef = useRef<number>();
-  const prevValueRef = useRef(targetValue);
+  const prevValueRef = useRef(0);
+
+  useEffect(() => {
+    prevValueRef.current = displayValue;
+  }, [displayValue]);
 
   useEffect(() => {
     const startValue = prevValueRef.current;
@@ -24,15 +28,13 @@ const useAnimatedCounter = (targetValue: number, duration: number = 800) => {
       const elapsedTime = currentTime - startTime;
       const progress = Math.min(elapsedTime / duration, 1);
       
-      // Ease-out quint function for a smoother animation
-      const easedProgress = 1 - Math.pow(1 - progress, 5);
+      const easedProgress = 1 - Math.pow(1 - progress, 5); // easeOutQuint
       const currentValue = startValue + (endValue - startValue) * easedProgress;
       setDisplayValue(currentValue);
 
       if (progress < 1) {
         frameRef.current = requestAnimationFrame(animate);
       } else {
-        prevValueRef.current = endValue;
         setDisplayValue(endValue);
       }
     };
@@ -43,10 +45,8 @@ const useAnimatedCounter = (targetValue: number, duration: number = 800) => {
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
       }
-      // Store the last known value when the effect cleans up
-      prevValueRef.current = displayValue;
     };
-  }, [targetValue, duration, displayValue]);
+  }, [targetValue, duration]);
 
   return displayValue;
 }
@@ -67,7 +67,7 @@ export function WeightDisplay({ weight, size = 'normal' }: WeightDisplayProps) {
         <span className={`${textSizeClass} font-bold tracking-tighter text-primary font-heading`}>
           {displayValue.toFixed(decimalPlaces)}
         </span>
-        <span className={`${unitSizeClass} font-medium text-muted-foreground -ml-1`}>{displayUnit}</span>
+        <span className={`${unitSizeClass} font-medium text-muted-foreground`}>{displayUnit}</span>
       </div>
     </div>
   );
