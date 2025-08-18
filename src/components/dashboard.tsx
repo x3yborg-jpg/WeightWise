@@ -104,15 +104,15 @@ export function Dashboard() {
                 </Card>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px] bg-background/80 backdrop-blur-md border-primary/20">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-foreground">
+                <div className="flex items-center justify-center pt-8">
+                     <LevelGauge level={data?.level ?? 0} size={300} />
+                </div>
+                 <DialogHeader className="pt-4">
+                    <DialogTitle className="flex items-center justify-center gap-2 text-foreground">
                         <Waves className="h-5 w-5 text-primary" />
                         Container Level
                     </DialogTitle>
                 </DialogHeader>
-                <div className="flex items-center justify-center py-8">
-                     <LevelGauge level={data?.level ?? 0} size={300} />
-                </div>
             </DialogContent>
         </Dialog>
 

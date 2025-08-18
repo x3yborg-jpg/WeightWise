@@ -22,8 +22,9 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
   const maxWeight = Math.max(...data.map(item => item.weight), 0);
   const unit = maxWeight >= 1000 ? 'kg' : 'g';
 
-  const chartData = data.map(item => ({
+  const chartData = data.map((item, index) => ({
     time: item.timestamp,
+    index: index, // Use index for the x-axis
     // Consistently use the determined unit for all points in the chart
     weight: unit === 'kg' ? item.weight / 1000 : item.weight,
   }));
@@ -36,7 +37,7 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
   }
 
   // Ensure there's always at least one data point to prevent crashes
-  const safeChartData = chartData.length > 0 ? chartData : [{time: Date.now(), weight: 0}];
+  const safeChartData = chartData.length > 0 ? chartData : [{time: Date.now(), weight: 0, index: 0}];
 
   // Set a dynamic domain for the Y-axis
   const yAxisDomain = [
@@ -63,13 +64,12 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
         >
           <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-muted/30" />
           <XAxis
-            dataKey="time"
+            dataKey="index"
             tickLine={false}
             axisLine={false}
             tickMargin={8}
             tickFormatter={() => ""} // Hide the labels
             type="number"
-            domain={['dataMin', 'dataMax']}
           />
            <YAxis
             tickLine={false}
