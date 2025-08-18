@@ -38,9 +38,9 @@ export function useLoadcellData() {
   const [isDemoMode, setIsDemoMode] = useState(false);
 
   useEffect(() => {
-    const loadCellRef = ref(database, 'loadcell');
+    const dbRef = ref(database); // Reference the root of the database
 
-    const listener = onValue(loadCellRef, (snapshot) => {
+    const listener = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
         setIsDemoMode(false);
         const val = snapshot.val();
@@ -64,10 +64,10 @@ export function useLoadcellData() {
           setError(null);
         } else {
           setIsConnected(false);
-          setError("Received invalid data structure from Firebase. Expected { weight: number, level: number, timestamp: number, isConnected: boolean }.");
+          setError("Received invalid data structure from Firebase. Expected { weight: number, level: number, timestamp: number, isConnected: boolean } at the root.");
         }
       } else {
-         setError("No data found at '/loadcell'. Displaying demo data. Connect a device to see live data.");
+         setError("No data found at the root of your database. Displaying demo data. Connect a device to see live data.");
          setIsConnected(true); // For demo
          setIsDemoMode(true);
       }
@@ -84,7 +84,7 @@ export function useLoadcellData() {
     });
 
     return () => {
-      off(loadCellRef, 'value', listener);
+      off(dbRef, 'value', listener);
     };
   }, []);
 

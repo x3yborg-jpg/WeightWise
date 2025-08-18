@@ -1,7 +1,7 @@
 
 # ESP32 Code for Firebase Realtime Database
 
-This example code is for an ESP32 microcontroller to read data from a load cell (simulated) and an ultrasonic sensor (simulated), and then push that data to a Firebase Realtime Database.
+This example code is for an ESP32 microcontroller to read data from a load cell (simulated) and an ultrasonic sensor (simulated), and then push that data to the root of a Firebase Realtime Database.
 
 ## Prerequisites
 
@@ -103,7 +103,8 @@ void updateConnectionStatus() {
 
   Serial.printf("Updating connection status to: %s\n", isConnected ? "Online" : "Offline");
   
-  if (Firebase.updateNode(fbdo, "/loadcell", json)) {
+  // Update only the isConnected and timestamp fields at the root
+  if (Firebase.updateNode(fbdo, "/", json)) {
     Serial.println("Connection status updated successfully.");
   } else {
     Serial.println("Failed to update connection status.");
@@ -124,8 +125,8 @@ void sendSensorData() {
   json.set("timestamp/.sv", "timestamp"); // Use server value for timestamp
   json.set("isConnected", true);
 
-  // Update the 'loadcell' node in Firebase
-  if (Firebase.updateNode(fbdo, "/loadcell", json)) {
+  // Update the root node in Firebase
+  if (Firebase.updateNode(fbdo, "/", json)) {
     Serial.println("Data sent successfully.");
   } else {
     Serial.println("Failed to send data.");
@@ -144,4 +145,4 @@ void sendSensorData() {
 3.  **Upload the code** to your ESP32.
 4.  **Open the Serial Monitor** at a baud rate of `115200` to see the log messages.
 
-The ESP32 will now push simulated sensor data to your Firebase Realtime Database every 5 seconds.
+The ESP32 will now push simulated sensor data to the root of your Firebase Realtime Database every 5 seconds.
