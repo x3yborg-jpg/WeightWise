@@ -1,6 +1,18 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import { cn } from '@/lib/utils';
+import { Inter, Space_Grotesk as SpaceGrotesk } from "next/font/google"
+
+const fontSans = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+})
+
+const fontHeading = SpaceGrotesk({
+  subsets: ["latin"],
+  variable: "--font-heading",
+})
 
 export const metadata: Metadata = {
   title: 'WeightWise Dashboard',
@@ -14,13 +26,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet"></link>
-      </head>
-      <body className="font-body antialiased">
-        {children}
+      <body className={cn(
+        "min-h-screen bg-background font-sans antialiased",
+        fontSans.variable,
+        fontHeading.variable
+      )}>
+        <div className="relative flex min-h-screen flex-col">
+          <div className="flex-1">{children}</div>
+        </div>
         <Toaster />
       </body>
     </html>

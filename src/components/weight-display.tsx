@@ -6,7 +6,7 @@ interface WeightDisplayProps {
   weight: number;
 }
 
-const useAnimatedCounter = (targetValue: number, duration: number = 500) => {
+const useAnimatedCounter = (targetValue: number, duration: number = 800) => {
   const [displayValue, setDisplayValue] = useState(targetValue);
   const frameRef = useRef<number>();
   const prevValueRef = useRef(targetValue);
@@ -23,7 +23,8 @@ const useAnimatedCounter = (targetValue: number, duration: number = 500) => {
       const elapsedTime = currentTime - startTime;
       const progress = Math.min(elapsedTime / duration, 1);
       
-      const easedProgress = 1 - Math.pow(1 - progress, 3); // Ease-out cubic
+      // Ease-out quint function for a smoother animation
+      const easedProgress = 1 - Math.pow(1 - progress, 5);
       const currentValue = startValue + (endValue - startValue) * easedProgress;
       setDisplayValue(currentValue);
 
@@ -31,7 +32,7 @@ const useAnimatedCounter = (targetValue: number, duration: number = 500) => {
         frameRef.current = requestAnimationFrame(animate);
       } else {
         prevValueRef.current = endValue;
-        setDisplayValue(endValue); // Ensure it ends exactly on the target
+        setDisplayValue(endValue);
       }
     };
 
@@ -41,8 +42,10 @@ const useAnimatedCounter = (targetValue: number, duration: number = 500) => {
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
       }
+      // Store the last known value when the effect cleans up
+      prevValueRef.current = displayValue;
     };
-  }, [targetValue, duration]);
+  }, [targetValue, duration, displayValue]);
 
   return displayValue;
 }
@@ -50,19 +53,17 @@ const useAnimatedCounter = (targetValue: number, duration: number = 500) => {
 export function WeightDisplay({ weight }: WeightDisplayProps) {
   const animatedWeight = useAnimatedCounter(weight);
 
-  // Use kg if weight is >= 1000g, otherwise use g
-  const displayUnit = weight >= 1000 ? 'kg' : 'g';
-  const displayValue = weight >= 1000 ? animatedWeight / 1000 : animatedWeight;
-  const decimalPlaces = displayUnit === 'kg' ? 3 : 0;
+  const displayUnit = animatedWeight >= 1000 ? 'kg' : 'g';
+  const displayValue = animatedWeight >= 1000 ? animatedWeight / 1000 : animatedWeight;
+  const decimalPlaces = displayUnit === 'kg' ? 2 : 0;
 
   return (
     <div className="text-center">
-      <p className="text-lg text-muted-foreground font-medium tracking-wide">Current Weight</p>
       <div className="flex items-baseline justify-center gap-2">
-        <span className="text-7xl font-bold tracking-tighter text-primary font-code">
+        <span className="text-6xl font-bold tracking-tighter text-primary font-heading">
           {displayValue.toFixed(decimalPlaces)}
         </span>
-        <span className="text-2xl font-medium text-muted-foreground">{displayUnit}</span>
+        <span className="text-xl font-medium text-muted-foreground -ml-1">{displayUnit}</span>
       </div>
     </div>
   );
