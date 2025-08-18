@@ -6,7 +6,7 @@ import { LevelGauge } from '@/components/level-gauge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, WifiOff, Wifi } from 'lucide-react';
 import { WeightChart } from './weight-chart';
 import { Separator } from './ui/separator';
 
@@ -40,7 +40,7 @@ function DashboardSkeleton() {
 }
 
 export function Dashboard() {
-  const { data, history, loading, error } = useLoadcellData();
+  const { data, history, loading, error, isConnected } = useLoadcellData();
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -56,11 +56,21 @@ export function Dashboard() {
     );
   }
 
+  if (!isConnected) {
+    return (
+      <Alert className="bg-card/80">
+        <WifiOff className="h-4 w-4" />
+        <AlertTitle>Device Offline</AlertTitle>
+        <AlertDescription>The device is not connected. Waiting for a connection...</AlertDescription>
+      </Alert>
+    );
+  }
+  
   if (!data) {
     return (
        <Alert className="bg-card/80">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Waiting for Data</AlertTitle>
+        <Wifi className="h-4 w-4" />
+        <AlertTitle>Device Connected - Waiting for Data</AlertTitle>
         <AlertDescription>No data received yet. Listening for updates...</AlertDescription>
       </Alert>
     );
@@ -82,7 +92,11 @@ export function Dashboard() {
       <CardContent>
          <WeightChart data={history} />
       </CardContent>
-      <CardFooter className="flex justify-center text-sm text-muted-foreground pt-4">
+      <CardFooter className="flex justify-between items-center text-sm text-muted-foreground pt-4">
+        <div className="flex items-center gap-2 text-green-500">
+          <Wifi className="h-4 w-4" />
+          <span>Device Online</span>
+        </div>
         <p>Last update: {new Date(data.timestamp).toLocaleString()}</p>
       </CardFooter>
     </Card>

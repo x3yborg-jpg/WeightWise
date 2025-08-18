@@ -10,12 +10,14 @@ export interface LoadCellData {
   weight: number;
   level: number;
   timestamp: number;
+  isConnected: boolean;
 }
 
 export function useLoadcellData() {
   const [dataHistory, setDataHistory] = useState<LoadCellData[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     const loadCellRef = ref(database, 'loadcell');
@@ -23,24 +25,36 @@ export function useLoadcellData() {
     const listener = onValue(loadCellRef, (snapshot) => {
       if (snapshot.exists()) {
         const val = snapshot.val();
-        if (typeof val.weight === 'number' && typeof val.level === 'number' && typeof val.timestamp === 'number') {
-          setDataHistory((prevHistory) => {
-            const newHistory = [...prevHistory, val];
-            if (newHistory.length > MAX_DATA_POINTS) {
-              return newHistory.slice(newHistory.length - MAX_DATA_POINTS);
-            }
-            return newHistory;
-          });
+        if (
+          typeof val.weight === 'number' && 
+          typeof val.level === 'number' && 
+          typeof val.timestamp === 'number' &&
+          typeof val.isConnected === 'boolean'
+        ) {
+          setIsConnected(val.isConnected);
+          
+          if(val.isConnected) {
+            setDataHistory((prevHistory) => {
+              const newHistory = [...prevHistory, val];
+              if (newHistory.length > MAX_DATA_POINTS) {
+                return newHistory.slice(newHistory.length - MAX_DATA_POINTS);
+              }
+              return newHistory;
+            });
+          }
           setError(null);
         } else {
-          setError("Received invalid data structure from Firebase. Expected { weight: number, level: number, timestamp: number }.");
+          setIsConnected(false);
+          setError("Received invalid data structure from Firebase. Expected { weight: number, level: number, timestamp: number, isConnected: boolean }.");
         }
       } else {
+         setIsConnected(false);
          setError("No data found at '/loadcell'. Ensure data is being sent to this path in your Firebase Realtime Database.");
       }
       setLoading(false);
     }, (error) => {
       console.error("Firebase Error:", error);
+      setIsConnected(false);
       if (error.message.includes("PERMISSION_DENIED")) {
         setError("Permission denied. Please check your Firebase Realtime Database security rules.");
       } else {
@@ -56,5 +70,5 @@ export function useLoadcellData() {
   
   const latestData = dataHistory.length > 0 ? dataHistory[dataHistory.length - 1] : null;
 
-  return { data: latestData, history: dataHistory, loading, error };
+  return { data: latestData, history: dataHistory, loading, error, isConnected };
 }
