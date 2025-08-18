@@ -125,8 +125,7 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
             stroke="hsl(var(--primary))"
             strokeWidth={2}
             dot={false}
-            isAnimationActive={true}
-            animationDuration={300}
+            isAnimationActive={false}
           />
         </AreaChart>
       </ChartContainer>
