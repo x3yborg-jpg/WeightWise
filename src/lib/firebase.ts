@@ -11,6 +11,16 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Defensive check for the databaseURL
+if (!firebaseConfig.databaseURL || !firebaseConfig.databaseURL.startsWith('https://')) {
+    console.error("FIREBASE FATAL ERROR: Your NEXT_PUBLIC_FIREBASE_DATABASE_URL is not set or is invalid in your .env.local file.");
+    console.error(`Current value is: "${firebaseConfig.databaseURL}"`);
+    console.error("It must be a full URL that starts with 'https://' and ends with '.firebaseio.com'.");
+    // Throw an error to prevent the app from continuing with a bad config.
+    throw new Error("Invalid Firebase database URL. Check the server console for details.");
+}
+
+
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const database = getDatabase(app);
