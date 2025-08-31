@@ -20,7 +20,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
 import { Button } from "@/components/ui/button";
@@ -38,7 +37,7 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ bin, children }: SettingsDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [name, setName] = useState(bin.name);
@@ -52,7 +51,7 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
 
   const handleSave = async () => {
     await updateBin(bin.id, { name, location });
-    setIsOpen(false);
+    setIsDialogOpen(false);
     toast({ title: "Bin Updated", description: `'${name}' has been updated successfully.` });
   };
 
@@ -62,7 +61,7 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
       await reauthenticate(password);
       await deleteBin(bin.id);
       setIsAlertOpen(false);
-      setIsOpen(false);
+      setIsDialogOpen(false);
       router.push('/');
       toast({ title: "Bin Deleted", description: `The bin has been permanently deleted.` });
     } catch (error: any) {
@@ -71,18 +70,26 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
     }
   }
 
-  const handleOpenChange = (open: boolean) => {
+  const handleDialogStateChange = (open: boolean) => {
     if (!open) {
       // Reset fields if dialog is closed without saving
       setName(bin.name);
       setLocation(bin.location);
     }
-    setIsOpen(open);
+    setIsDialogOpen(open);
   };
+  
+  const handleAlertStateChange = (open: boolean) => {
+    if(!open) {
+        setDeleteError(null);
+        setPassword('');
+    }
+    setIsAlertOpen(open);
+  }
 
   return (
     <>
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogStateChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[425px] bg-card/90 backdrop-blur-sm">
         <DialogHeader>
@@ -127,14 +134,12 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
           </div>
         </div>
         <DialogFooter className="justify-between">
-          <AlertDialogTrigger asChild>
-             <Button variant="destructive">
-               <Trash2 className="mr-2 h-4 w-4" />
-               Delete Bin
-             </Button>
-          </AlertDialogTrigger>
+           <Button variant="destructive" onClick={() => setIsAlertOpen(true)}>
+             <Trash2 className="mr-2 h-4 w-4" />
+             Delete Bin
+           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
             <Button type="submit" onClick={handleSave} disabled={loading}>
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Save changes
@@ -144,7 +149,7 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
       </DialogContent>
     </Dialog>
 
-    <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+    <AlertDialog open={isAlertOpen} onOpenChange={handleAlertStateChange}>
         <AlertDialogContent>
             <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -165,7 +170,7 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
                 {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
             </div>
             <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
+                <AlertDialogCancel onClick={() => setIsAlertOpen(false)}>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDelete} disabled={loading || !password}>
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Confirm Deletion
