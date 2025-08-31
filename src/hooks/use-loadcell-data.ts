@@ -118,6 +118,13 @@ export function useLoadcellData(binId: string) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
+        // This check prevents processing the same data point multiple times
+        const dataString = JSON.stringify({ w: val.weight, l: val.level });
+        if (dataString === lastDataRef.current) {
+            return;
+        }
+        lastDataRef.current = dataString;
+
         if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
         heartbeatTimeoutRef.current = setTimeout(() => setIsConnected(false), HEARTBEAT_TIMEOUT);
 
@@ -127,26 +134,21 @@ export function useLoadcellData(binId: string) {
             setIsConnected(false);
         }
 
-        const dataString = JSON.stringify({ w: val.weight, l: val.level });
-        if (dataString !== lastDataRef.current) {
-            lastDataRef.current = dataString;
+        if (typeof val.weight === 'number' && typeof val.level === 'number') {
+            const newDataPoint: LoadCellData = {
+                weight: val.weight,
+                level: val.level,
+                timestamp: Date.now()
+            };
 
-             if (typeof val.weight === 'number' && typeof val.level === 'number') {
-                const newDataPoint: LoadCellData = {
-                    weight: val.weight,
-                    level: val.level,
-                    timestamp: Date.now()
-                };
+            setDataHistory((prevHistory) => {
+                const newHistory = [...prevHistory, newDataPoint];
+                return newHistory.length > MAX_DATA_POINTS 
+                        ? newHistory.slice(newHistory.length - MAX_DATA_POINTS) 
+                        : newHistory;
+            });
 
-                setDataHistory((prevHistory) => {
-                    const newHistory = [...prevHistory, newDataPoint];
-                    return newHistory.length > MAX_DATA_POINTS 
-                            ? newHistory.slice(newHistory.length - MAX_DATA_POINTS) 
-                            : newHistory;
-                });
-
-                handleNotificationsAndWarnings(newDataPoint);
-            }
+            handleNotificationsAndWarnings(newDataPoint);
         }
       } else {
          setError(`No data found at '/${binId}'. Displaying demo data.`);
@@ -168,7 +170,7 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
     };
-  }, [binId, user, settings, warnings, addWarning, removeWarning]); // Rerun if user/settings change
+  }, [binId, user, settings.warningThresholdLevel, warnings, addWarning, removeWarning]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
