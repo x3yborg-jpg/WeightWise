@@ -36,7 +36,7 @@ export function AppSidebar() {
         <SidebarMenu>
           {BINS.map(bin => (
             <SidebarMenuItem key={bin.id}>
-              <Link href={`/bin/${bin.id}`} legacyBehavior passHref>
+              <Link href={`/bin/${bin.id}`}>
                 <SidebarMenuButton
                   isActive={pathname === `/bin/${bin.id}`}
                   asChild
