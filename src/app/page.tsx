@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useAuth } from '@/context/auth-context';
@@ -39,14 +40,18 @@ export default function Home() {
               <div className="absolute left-0 right-0 top-1/4 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary/20 opacity-20 blur-[100px]"></div>
             </div>
 
-            <div className="text-center">
-              <h1 className="text-4xl font-bold tracking-tighter text-foreground sm:text-5xl md:text-6xl font-heading flex items-center gap-4">
-                <ArrowLeft className="h-8 w-8 text-primary" />
-                Select a Bin
-              </h1>
-              <p className="mt-4 text-lg text-muted-foreground">
-                Choose a bin from the sidebar to view its live data.
-              </p>
+            <div className="text-center p-8 border border-dashed border-border rounded-xl bg-card/20 backdrop-blur-sm">
+                <div className="flex justify-center items-center mb-4">
+                  <div className="p-3 bg-primary/10 rounded-full border-2 border-primary/20">
+                    <ArrowLeft className="h-8 w-8 text-primary animate-pulse" />
+                  </div>
+                </div>
+                <h1 className="text-3xl font-bold tracking-tight text-foreground font-heading">
+                    Select a Bin
+                </h1>
+                <p className="mt-2 text-base text-muted-foreground">
+                    Choose a bin from the sidebar to view its live data.
+                </p>
             </div>
           </div>
       </main>
