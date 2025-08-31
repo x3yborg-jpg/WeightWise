@@ -43,7 +43,6 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
   const { settings, updateSettings, loading } = useSettings();
   const { toast } = useToast();
 
-  const [alertEmail, setAlertEmail] = useState(settings.alertEmail);
   const [notificationInterval, setNotificationInterval] = useState(settings.notificationInterval);
   const [warningThresholdLevel, setWarningThresholdLevel] = useState(settings.warningThresholdLevel);
   const [warningThresholdWeightKg, setWarningThresholdWeightKg] = useState(settings.warningThresholdWeight / 1000);
@@ -51,7 +50,6 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
 
   useEffect(() => {
     if(isDialogOpen) {
-        setAlertEmail(settings.alertEmail);
         setNotificationInterval(settings.notificationInterval);
         setWarningThresholdLevel(settings.warningThresholdLevel);
         setWarningThresholdWeightKg(settings.warningThresholdWeight / 1000);
@@ -60,7 +58,6 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
 
   const handleSave = async () => {
     await updateSettings({ 
-        alertEmail, 
         notificationInterval,
         warningThresholdLevel,
         warningThresholdWeight: warningThresholdWeightKg * 1000,
@@ -83,24 +80,10 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
             Global Application Settings
           </DialogTitle>
           <DialogDescription>
-            Manage notification settings and warning thresholds for your account.
+            Manage warning thresholds and dashboard alert frequency.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium">
-              <Mail className="h-4 w-4" />
-              Alert Email
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="Enter email for notifications"
-              value={alertEmail}
-              onChange={(e) => setAlertEmail(e.target.value)}
-              className="bg-input/50"
-            />
-          </div>
            <div className="space-y-2">
                 <Label htmlFor="level-threshold" className="flex items-center gap-2 text-sm font-medium">
                     <Percent className="h-4 w-4" />

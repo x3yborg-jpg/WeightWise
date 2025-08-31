@@ -5,7 +5,6 @@ import { useState, useEffect, useRef } from 'react';
 import { ref, onValue, off } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { useBins } from '@/context/bin-context';
-import { sendHighLevelNotification } from '@/ai/flows/notification-flow';
 import { useToast } from './use-toast';
 import { useWarnings } from '@/context/warning-context';
 import { useSettings } from '@/context/settings-context';
@@ -15,7 +14,6 @@ export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
 export const MAX_WEIGHT_G = 40000; // 40kg in grams
 const HEARTBEAT_TIMEOUT = 1800000; // 30 minutes
-const EMAIL_COOLDOWN = 10 * 60 * 1000; // 10 minutes for email
 
 export interface LoadCellData {
   weight: number;
@@ -63,7 +61,6 @@ export function useLoadcellData(binId: string) {
 
   const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastDataRef = useRef<string | null>(null);
-  const lastEmailTimeRef = useRef<number>(0);
   
   const isWarningActiveForThisBin = warnings.some(w => w.binId === binId);
 
@@ -71,8 +68,6 @@ export function useLoadcellData(binId: string) {
   const handleNotificationsAndWarnings = (newData: LoadCellData) => {
     const currentBin = bins.find(b => b.id === binId);
     if (!currentBin) return;
-
-    const now = Date.now();
     
     // Use custom thresholds from settings
     const levelThreshold = settings.warningThresholdLevel;
@@ -82,36 +77,6 @@ export function useLoadcellData(binId: string) {
     const isWeightCritical = newData.weight > weightThreshold;
 
     if (isLevelCritical && isWeightCritical) {
-        // --- Email Notification Logic (with cooldown) ---
-        if (now - lastEmailTimeRef.current > EMAIL_COOLDOWN) {
-            const alertEmail = settings.alertEmail || user?.email;
-            if (alertEmail) {
-                console.log(`Bin level ${newData.level}% and weight ${newData.weight}g are over thresholds. Sending email notification.`);
-                lastEmailTimeRef.current = now;
-                sendHighLevelNotification({
-                    userEmail: alertEmail,
-                    binName: currentBin.name,
-                    binLocation: currentBin.location,
-                    level: newData.level,
-                    weight: newData.weight,
-                    timestamp: newData.timestamp
-                }).then(() => {
-                    toast({
-                        title: "Alert Sent!",
-                        description: `Bin '${currentBin.name}' level is critical. An email has been sent.`,
-                        variant: 'default'
-                    });
-                }).catch(error => {
-                    console.error("Failed to send notification:", error);
-                    toast({
-                        title: "Notification Failed",
-                        description: "Could not send the high-level alert email.",
-                        variant: 'destructive'
-                    });
-                });
-            }
-        }
-        
         // --- Add to Global Warning State (if not already warned) ---
         if (!isWarningActiveForThisBin) {
              addWarning({
@@ -144,7 +109,6 @@ export function useLoadcellData(binId: string) {
     setIsDemoMode(false);
     if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
     lastDataRef.current = null;
-    lastEmailTimeRef.current = 0;
 
     const dbRef = ref(database, binId);
 
