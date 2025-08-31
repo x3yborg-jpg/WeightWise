@@ -252,3 +252,5 @@ export function Dashboard({ binId }: DashboardProps) {
     </>
   );
 }
+
+    
