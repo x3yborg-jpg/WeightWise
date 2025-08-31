@@ -71,7 +71,7 @@ export function useLoadcellData(binId: string) {
     const levelThreshold = settings.warningThresholdLevel;
     const isLevelCritical = newData.level > levelThreshold;
     const isCurrentlyWarning = warnings.some(w => w.binId === binId);
-
+    
     if (isLevelCritical) {
       if (!isCurrentlyWarning) {
         // --- Level just became critical ---
@@ -176,7 +176,7 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
     };
-  }, [binId, user, settings, warnings, addWarning, removeWarning]);
+  }, [binId, user, settings]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
@@ -203,7 +203,7 @@ export function useLoadcellData(binId: string) {
     return () => {
       if (intervalId) clearInterval(intervalId);
     }
-  }, [isDemoMode, binId, user, settings, warnings, addWarning, removeWarning]);
+  }, [isDemoMode, binId, user, settings]);
   
   const latestData = dataHistory.length > 0 ? dataHistory[dataHistory.length - 1] : null;
 
