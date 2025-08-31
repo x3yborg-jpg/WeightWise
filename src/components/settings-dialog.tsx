@@ -11,11 +11,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useBins, type BinConfig } from '@/context/bin-context';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 
 interface SettingsDialogProps {
   bin: BinConfig;
@@ -24,14 +39,37 @@ interface SettingsDialogProps {
 
 export function SettingsDialog({ bin, children }: SettingsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [password, setPassword] = useState('');
   const [name, setName] = useState(bin.name);
   const [location, setLocation] = useState(bin.location);
-  const { updateBin, loading } = useBins();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const { updateBin, deleteBin, loading } = useBins();
+  const { reauthenticate } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
 
   const handleSave = async () => {
     await updateBin(bin.id, { name, location });
     setIsOpen(false);
+    toast({ title: "Bin Updated", description: `'${name}' has been updated successfully.` });
   };
+
+  const handleDelete = async () => {
+    setDeleteError(null);
+    try {
+      await reauthenticate(password);
+      await deleteBin(bin.id);
+      setIsAlertOpen(false);
+      setIsOpen(false);
+      router.push('/');
+      toast({ title: "Bin Deleted", description: `The bin has been permanently deleted.` });
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      setDeleteError(error.code === 'auth/wrong-password' ? 'Incorrect password. Please try again.' : 'An error occurred during deletion.');
+    }
+  }
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -43,6 +81,7 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[425px] bg-card/90 backdrop-blur-sm">
@@ -87,14 +126,53 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
             />
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-          <Button type="submit" onClick={handleSave} disabled={loading}>
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Save changes
-          </Button>
+        <DialogFooter className="justify-between">
+          <AlertDialogTrigger asChild>
+             <Button variant="destructive">
+               <Trash2 className="mr-2 h-4 w-4" />
+               Delete Bin
+             </Button>
+          </AlertDialogTrigger>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+            <Button type="submit" onClick={handleSave} disabled={loading}>
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Save changes
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the bin
+                and all of its associated data from our servers.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-2">
+                <Label htmlFor="password">Please enter your password to confirm:</Label>
+                <Input 
+                    id="password" 
+                    type="password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••" 
+                />
+                {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+            </div>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={loading || !password}>
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Confirm Deletion
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
