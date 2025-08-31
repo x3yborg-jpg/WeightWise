@@ -29,9 +29,9 @@ export default function Home() {
   return (
     <div className="flex">
       <AppSidebar />
-      <main className="flex-1 min-h-screen">
+      <main className="flex-1 flex min-h-screen flex-col items-center justify-center p-4 md:p-8">
           <div 
-            className="relative flex h-full w-full flex-col items-center justify-center p-4 md:p-8"
+            className="relative w-full h-full flex flex-col items-center justify-center"
           >
              <div 
               className="absolute inset-0 -z-10 h-full w-full bg-background 

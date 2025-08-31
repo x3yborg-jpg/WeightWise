@@ -45,7 +45,7 @@ export default function BinPage({ params }: BinPageProps) {
     return (
       <div className="flex">
         <AppSidebar />
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex-1 flex items-center justify-center p-4 md:p-8">
             <div className="text-center">
                 <h1 className="text-2xl font-semibold text-destructive">Bin not found</h1>
                 <p className="text-muted-foreground">The bin with ID '{binId}' does not exist.</p>
