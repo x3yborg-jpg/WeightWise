@@ -8,10 +8,11 @@ import { LevelGauge } from '@/components/level-gauge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize } from 'lucide-react';
+import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize, Siren } from 'lucide-react';
 import { WeightChart } from './weight-chart';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/context/auth-context';
+import { cn } from '@/lib/utils';
 
 interface DashboardProps {
     binId: string;
@@ -61,7 +62,7 @@ function DashboardSkeleton() {
 
 export function Dashboard({ binId }: DashboardProps) {
   const { user } = useAuth();
-  const { data, history, loading, error, isConnected } = useLoadcellData(binId, user);
+  const { data, history, loading, error, isConnected, isWarningActive } = useLoadcellData(binId, user);
   const [openModal, setOpenModal] = useState<'level' | 'weight' | 'chart' | null>(null);
 
   if (loading) {
@@ -75,6 +76,15 @@ export function Dashboard({ binId }: DashboardProps) {
         <AlertDescription>The device is not sending data. Showing last known values.</AlertDescription>
       </Alert>
   );
+  
+  const HighLevelWarningAlert = () => (
+     <Alert variant="destructive" className="lg:col-span-3 animate-pulse">
+        <Siren className="h-4 w-4" />
+        <AlertTitle>URGENT: High Bin Level!</AlertTitle>
+        <AlertDescription>The container level is critical. Please arrange for emptying as soon as possible.</AlertDescription>
+      </Alert>
+  );
+
 
   if (error && !loading) {
     return (
@@ -86,17 +96,18 @@ export function Dashboard({ binId }: DashboardProps) {
     );
   }
   
-  const cardBaseClasses = "bg-card/50 backdrop-blur-sm transition-all duration-300 ease-in-out cursor-pointer hover:bg-card/80 hover:scale-105 hover:border-primary/50 relative group";
+  const cardBaseClasses = "bg-card/50 backdrop-blur-sm transition-all duration-300 ease-in-out cursor-pointer hover:bg-card/80 hover:scale-[1.03] hover:border-primary/50 relative group";
 
   return (
     <>
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {isWarningActive && <HighLevelWarningAlert />}
         {!isConnected && <ConnectionStatusAlert />}
 
         {/* Level Gauge Card & Modal */}
         <Dialog open={openModal === 'level'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
             <DialogTrigger asChild onClick={() => setOpenModal('level')}>
-                <Card className={`${cardBaseClasses} lg:col-span-1`}>
+                <Card className={cn(cardBaseClasses, "lg:col-span-1", isWarningActive && "border-destructive hover:border-destructive/80")}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Container Level</CardTitle>
                         <Waves className="h-4 w-4 text-muted-foreground" />
@@ -126,7 +137,7 @@ export function Dashboard({ binId }: DashboardProps) {
         {/* Weight Display Card & Modal */}
          <Dialog open={openModal === 'weight'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
             <DialogTrigger asChild onClick={() => setOpenModal('weight')}>
-                <Card className={`${cardBaseClasses} lg:col-span-2`}>
+                <Card className={cn(cardBaseClasses, "lg:col-span-2")}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Current Weight</CardTitle>
                         <Power className="h-4 w-4 text-muted-foreground" />
@@ -155,7 +166,7 @@ export function Dashboard({ binId }: DashboardProps) {
          {/* Weight Chart Card & Modal */}
         <Dialog open={openModal === 'chart'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
              <DialogTrigger asChild onClick={() => setOpenModal('chart')}>
-                <Card className={`${cardBaseClasses} lg:col-span-3`}>
+                <Card className={cn(cardBaseClasses, "lg:col-span-3")}>
                     <div className="relative">
                         <WeightChart data={history} />
                         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">

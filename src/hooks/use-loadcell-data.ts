@@ -7,13 +7,15 @@ import { useBins } from '@/context/bin-context';
 import { sendHighLevelNotification } from '@/ai/flows/notification-flow';
 import { useToast } from './use-toast';
 import { User } from 'firebase/auth';
+import { playWarningSound } from '@/lib/audio';
 
 export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
 export const MAX_WEIGHT_G = 40000; // 40kg in grams
 const HEARTBEAT_TIMEOUT = 1800000; // 30 minutes
 const NOTIFICATION_THRESHOLD = 90; // 90%
-const NOTIFICATION_COOLDOWN = 10 * 60 * 1000; // 10 minutes
+const EMAIL_COOLDOWN = 10 * 60 * 1000; // 10 minutes for email
+const DASHBOARD_WARNING_INTERVAL = 1 * 60 * 60 * 1000; // 1 hour for dashboard warning
 
 export interface LoadCellData {
   weight: number;
@@ -31,15 +33,17 @@ export interface RawData {
 // Function to generate sample data
 const generateSampleData = (lastData?: LoadCellData): LoadCellData => {
   const lastWeight = lastData?.weight ?? 500;
-  const lastLevel = lastData?.level ?? 10;
+  let lastLevel = lastData?.level ?? 10;
 
-  // Simulate a weight change, e.g., +/- 1000g
-  const newWeight = lastWeight + (Math.random() - 0.5) * 2000;
-  const newLevel = Math.max(0, Math.min(100, lastLevel + (Math.random() - 0.45) * 5));
+  // Make it more likely to go up if it's not full
+  const levelTrend = lastLevel > 95 ? -0.2 : 0.5;
+  lastLevel = Math.max(0, Math.min(100, lastLevel + (Math.random() - levelTrend) * 5));
+
+  const newWeight = Math.max(0, lastWeight + (Math.random() - 0.4) * 2000);
 
   return {
-    weight: Math.max(0, Math.min(MAX_WEIGHT_G, newWeight)), // Ensure weight is within limits
-    level: newLevel,
+    weight: Math.max(0, Math.min(MAX_WEIGHT_G, newWeight)),
+    level: lastLevel,
     timestamp: Date.now(),
   };
 };
@@ -50,46 +54,86 @@ export function useLoadcellData(binId: string, user: User | null) {
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [isWarningActive, setIsWarningActive] = useState(false);
   const { bins } = useBins();
   const { toast } = useToast();
 
   const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const warningIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastHeartbeatRef = useRef<number | null>(null);
-  const lastNotificationTimeRef = useRef<number>(0);
+  const lastEmailTimeRef = useRef<number>(0);
 
-  const handleNotification = async (newData: LoadCellData) => {
+  const clearWarningState = () => {
+      setIsWarningActive(false);
+      if (warningIntervalRef.current) {
+          clearInterval(warningIntervalRef.current);
+          warningIntervalRef.current = null;
+      }
+  };
+
+  const triggerDashboardWarning = (binName: string | undefined) => {
+      playWarningSound();
+      toast({
+          title: `URGENT: Bin Level High`,
+          description: `The bin '${binName || binId}' level is over ${NOTIFICATION_THRESHOLD}%. Please empty it soon.`,
+          variant: 'destructive',
+          duration: 10000,
+      });
+  };
+
+  const handleNotificationsAndWarnings = (newData: LoadCellData) => {
+    const currentBin = bins.find(b => b.id === binId);
     const now = Date.now();
-    if (now - lastNotificationTimeRef.current < NOTIFICATION_COOLDOWN) {
-        // Still in cooldown period
-        return;
-    }
+
     if (newData.level > NOTIFICATION_THRESHOLD) {
-        const currentBin = bins.find(b => b.id === binId);
-        if (!currentBin || !user?.email) return;
+        // --- Email Notification Logic ---
+        if (now - lastEmailTimeRef.current > EMAIL_COOLDOWN) {
+            if (currentBin && user?.email) {
+                console.log(`Bin level ${newData.level}% is over threshold. Sending email notification.`);
+                lastEmailTimeRef.current = now;
+                sendHighLevelNotification({
+                    userEmail: user.email,
+                    binName: currentBin.name,
+                    binLocation: currentBin.location,
+                    level: newData.level,
+                    weight: newData.weight,
+                    timestamp: newData.timestamp
+                }).then(() => {
+                    toast({
+                        title: "Alert Sent!",
+                        description: `Bin '${currentBin.name}' level is critical. An email has been sent.`,
+                        variant: 'default'
+                    });
+                }).catch(error => {
+                    console.error("Failed to send notification:", error);
+                    toast({
+                        title: "Notification Failed",
+                        description: "Could not send the high-level alert email.",
+                        variant: 'destructive'
+                    });
+                });
+            }
+        }
+        
+        // --- Dashboard Warning Logic ---
+        if (!isWarningActive) {
+            setIsWarningActive(true);
+            triggerDashboardWarning(currentBin?.name); // Initial warning
 
-        console.log(`Bin level ${newData.level}% is over threshold. Sending notification.`);
-        lastNotificationTimeRef.current = now;
-
-        try {
-            await sendHighLevelNotification({
-                userEmail: user.email,
-                binName: currentBin.name,
-                binLocation: currentBin.location,
-                level: newData.level,
-                weight: newData.weight,
-                timestamp: newData.timestamp
-            });
+            // Set up recurring warning
+            if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
+            warningIntervalRef.current = setInterval(() => {
+                triggerDashboardWarning(currentBin?.name);
+            }, DASHBOARD_WARNING_INTERVAL);
+        }
+    } else {
+        // Level is below threshold, clear any active warnings.
+        if(isWarningActive) {
+            clearWarningState();
             toast({
-                title: "Alert Sent!",
-                description: `Bin '${currentBin.name}' level is critical. An email has been sent.`,
-                variant: 'destructive'
-            });
-        } catch (error) {
-            console.error("Failed to send notification:", error);
-            toast({
-                title: "Notification Failed",
-                description: "Could not send the high-level alert email.",
-                variant: 'destructive'
+                title: "Bin Level OK",
+                description: `The level for bin '${currentBin?.name || binId}' is now back to normal.`,
+                className: 'bg-green-500/10 border-green-500/50 text-green-400'
             });
         }
     }
@@ -102,9 +146,10 @@ export function useLoadcellData(binId: string, user: User | null) {
     setLoading(true);
     setIsConnected(false);
     setIsDemoMode(false);
+    clearWarningState();
     if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
     lastHeartbeatRef.current = null;
-    lastNotificationTimeRef.current = 0;
+    lastEmailTimeRef.current = 0;
 
     const dbRef = ref(database, binId);
 
@@ -114,17 +159,11 @@ export function useLoadcellData(binId: string, user: User | null) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
-        // --- Heartbeat Logic ---
         if (typeof val.IsON === 'number') {
             setIsConnected(true);
             
-            if (heartbeatTimeoutRef.current) {
-                clearTimeout(heartbeatTimeoutRef.current);
-            }
-            
-            heartbeatTimeoutRef.current = setTimeout(() => {
-                setIsConnected(false);
-            }, HEARTBEAT_TIMEOUT);
+            if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
+            heartbeatTimeoutRef.current = setTimeout(() => setIsConnected(false), HEARTBEAT_TIMEOUT);
 
             if (val.IsON !== lastHeartbeatRef.current) {
                 lastHeartbeatRef.current = val.IsON;
@@ -142,7 +181,7 @@ export function useLoadcellData(binId: string, user: User | null) {
                                 : newHistory;
                     });
 
-                    handleNotification(newDataPoint);
+                    handleNotificationsAndWarnings(newDataPoint);
                 }
             }
         } else {
@@ -157,26 +196,24 @@ export function useLoadcellData(binId: string, user: User | null) {
     }, (err) => {
       console.error("Firebase Error:", err);
       setIsConnected(false);
-      if (err.message.includes("PERMISSION_DENIED")) {
-        setError("Permission denied. Please check your Firebase Realtime Database security rules.");
-      } else {
-        setError("Failed to connect to Firebase. Please check your firebase.ts configuration and network connection.");
-      }
+      setError(
+          err.message.includes("PERMISSION_DENIED")
+          ? "Permission denied. Please check your Firebase Realtime Database security rules."
+          : "Failed to connect to Firebase. Check your configuration and network."
+      );
       setLoading(false);
     });
 
     return () => {
       off(dbRef, 'value', listener);
-      if (heartbeatTimeoutRef.current) {
-        clearTimeout(heartbeatTimeoutRef.current);
-      }
+      if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
+      clearWarningState();
     };
-  }, [binId, user, bins, toast]);
+  }, [binId, user?.email]); // Rerun if user changes
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
     if (isDemoMode) {
-      // Pre-fill with some initial data
       const initialData: LoadCellData[] = [];
       let lastData: LoadCellData | undefined = undefined;
       for (let i = 0; i < MAX_DATA_POINTS; i++) {
@@ -185,11 +222,10 @@ export function useLoadcellData(binId: string, user: User | null) {
       }
       setDataHistory(initialData);
 
-      // Then start generating new data every few seconds
       intervalId = setInterval(() => {
         setDataHistory(prevHistory => {
           const newPoint = generateSampleData(prevHistory[prevHistory.length - 1]);
-          handleNotification(newPoint);
+          handleNotificationsAndWarnings(newPoint);
           const newHistory = [...prevHistory, newPoint];
            return newHistory.length > MAX_DATA_POINTS 
                 ? newHistory.slice(newHistory.length - MAX_DATA_POINTS)
@@ -200,9 +236,9 @@ export function useLoadcellData(binId: string, user: User | null) {
     return () => {
       if (intervalId) clearInterval(intervalId);
     }
-  }, [isDemoMode, binId, user, bins, toast]);
+  }, [isDemoMode, binId, user?.email]);
   
   const latestData = dataHistory.length > 0 ? dataHistory[dataHistory.length - 1] : null;
 
-  return { data: latestData, history: dataHistory, loading, error, isConnected };
+  return { data: latestData, history: dataHistory, loading, error, isConnected, isWarningActive };
 }
