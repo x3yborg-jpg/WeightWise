@@ -7,8 +7,9 @@ import { database } from '@/lib/firebase';
 import { useBins } from '@/context/bin-context';
 import { sendHighLevelNotification } from '@/ai/flows/notification-flow';
 import { useToast } from './use-toast';
-import { User } from 'firebase/auth';
 import { useWarnings } from '@/context/warning-context';
+import { useSettings } from '@/context/settings-context';
+import { useAuth } from '@/context/auth-context';
 
 export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
@@ -48,7 +49,8 @@ const generateSampleData = (lastData?: LoadCellData): LoadCellData => {
   };
 };
 
-export function useLoadcellData(binId: string, user: User | null) {
+export function useLoadcellData(binId: string) {
+  const { user } = useAuth();
   const [dataHistory, setDataHistory] = useState<LoadCellData[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +58,7 @@ export function useLoadcellData(binId: string, user: User | null) {
   const [isDemoMode, setIsDemoMode] = useState(false);
   
   const { bins } = useBins();
+  const { settings } = useSettings();
   const { addWarning, removeWarning, warnings } = useWarnings();
   const { toast } = useToast();
 
@@ -75,11 +78,12 @@ export function useLoadcellData(binId: string, user: User | null) {
     if (newData.level > NOTIFICATION_THRESHOLD) {
         // --- Email Notification Logic (only if not already warned) ---
         if (now - lastEmailTimeRef.current > EMAIL_COOLDOWN) {
-            if (user?.email) {
+            const alertEmail = settings.alertEmail || user?.email;
+            if (alertEmail) {
                 console.log(`Bin level ${newData.level}% is over threshold. Sending email notification.`);
                 lastEmailTimeRef.current = now;
                 sendHighLevelNotification({
-                    userEmail: user.email,
+                    userEmail: alertEmail,
                     binName: currentBin.name,
                     binLocation: currentBin.location,
                     level: newData.level,
@@ -193,7 +197,7 @@ export function useLoadcellData(binId: string, user: User | null) {
       off(dbRef, 'value', listener);
       if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
     };
-  }, [binId, user?.email]); // Rerun if user changes
+  }, [binId, user?.email, settings.alertEmail]); // Rerun if user/settings change
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
@@ -220,7 +224,7 @@ export function useLoadcellData(binId: string, user: User | null) {
     return () => {
       if (intervalId) clearInterval(intervalId);
     }
-  }, [isDemoMode, binId, user?.email]);
+  }, [isDemoMode, binId, user?.email, settings.alertEmail]);
   
   const latestData = dataHistory.length > 0 ? dataHistory[dataHistory.length - 1] : null;
 

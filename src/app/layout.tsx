@@ -8,6 +8,7 @@ import { AuthProvider } from '@/context/auth-context';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { BinProvider } from '@/context/bin-context';
 import { WarningProvider } from '@/context/warning-context';
+import { SettingsProvider } from '@/context/settings-context';
 
 const fontSans = Inter({
   subsets: ["latin"],
@@ -37,16 +38,18 @@ export default function RootLayout({
         fontHeading.variable
       )}>
         <AuthProvider>
-          <BinProvider>
-            <WarningProvider>
-              <SidebarProvider>
-                <div className="relative flex min-h-screen flex-col">
-                    {children}
-                </div>
-                <Toaster />
-              </SidebarProvider>
-            </WarningProvider>
-          </BinProvider>
+          <SettingsProvider>
+            <BinProvider>
+              <WarningProvider>
+                <SidebarProvider>
+                  <div className="relative flex min-h-screen flex-col">
+                      {children}
+                  </div>
+                  <Toaster />
+                </SidebarProvider>
+              </WarningProvider>
+            </BinProvider>
+          </SettingsProvider>
         </AuthProvider>
       </body>
     </html>

@@ -22,6 +22,7 @@ import { useWarnings } from "@/context/warning-context";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { GlobalSettingsDialog } from "./global-settings-dialog";
 
 interface BinStatus {
     [key: string]: boolean;
@@ -72,10 +73,12 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarHeader>
           <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-2">
-                <Package2 className="h-7 w-7 text-primary" />
-                <span className="text-lg font-semibold font-heading">WeightWise</span>
-            </div>
+            <GlobalSettingsDialog>
+                <div className="flex items-center gap-2 cursor-pointer group">
+                    <Package2 className="h-7 w-7 text-primary transition-transform group-hover:rotate-12" />
+                    <span className="text-lg font-semibold font-heading">WeightWise</span>
+                </div>
+            </GlobalSettingsDialog>
             <Sheet>
                 <SheetTrigger asChild>
                     <Button variant="ghost" size="icon" className="relative">

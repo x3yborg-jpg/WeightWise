@@ -16,12 +16,11 @@ import { cn } from '@/lib/utils';
 import { playWarningSound } from '@/lib/audio';
 import { useToast } from '@/hooks/use-toast';
 import { useWarnings } from '@/context/warning-context';
+import { useSettings } from '@/context/settings-context';
 
 interface DashboardProps {
     binId: string;
 }
-
-const DASHBOARD_WARNING_INTERVAL = 1 * 60 * 60 * 1000; // 1 hour for dashboard warning
 
 function DashboardSkeleton() {
   return (
@@ -67,9 +66,10 @@ function DashboardSkeleton() {
 
 export function Dashboard({ binId }: DashboardProps) {
   const { user } = useAuth();
-  const { data, history, loading, error, isConnected } = useLoadcellData(binId, user);
+  const { data, history, loading, error, isConnected } = useLoadcellData(binId);
   const [openModal, setOpenModal] = useState<'level' | 'weight' | 'chart' | null>(null);
   const { warnings } = useWarnings();
+  const { settings } = useSettings();
   const { toast } = useToast();
   const warningIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -95,7 +95,7 @@ export function Dashboard({ binId }: DashboardProps) {
         if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
         warningIntervalRef.current = setInterval(() => {
             triggerDashboardWarning(activeWarning.binName);
-        }, DASHBOARD_WARNING_INTERVAL);
+        }, settings.notificationInterval);
     }
 
     // Cleanup interval when component unmounts or warning is cleared
@@ -104,7 +104,7 @@ export function Dashboard({ binId }: DashboardProps) {
             clearInterval(warningIntervalRef.current);
         }
     };
-  }, [binId, warnings]);
+  }, [binId, warnings, settings.notificationInterval]);
 
 
   if (loading) {
