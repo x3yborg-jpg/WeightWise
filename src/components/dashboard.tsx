@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -69,7 +70,7 @@ export function Dashboard({ binId }: DashboardProps) {
      <Alert className="lg:col-span-3 bg-card/80 backdrop-blur-sm border-yellow-500/50 text-yellow-500">
         <WifiOff className="h-4 w-4" />
         <AlertTitle>Device Offline</AlertTitle>
-        <AlertDescription>The device is not sending data. Waiting for a signal...</AlertDescription>
+        <AlertDescription>The device is not sending data. Showing last known values.</AlertDescription>
       </Alert>
   );
 
@@ -84,7 +85,6 @@ export function Dashboard({ binId }: DashboardProps) {
   }
   
   const cardBaseClasses = "bg-card/50 backdrop-blur-sm transition-all duration-300 ease-in-out cursor-pointer hover:bg-card/80 hover:scale-105 hover:border-primary/50 relative group";
-  const cardOpacityClass = !isConnected ? 'opacity-30 pointer-events-none' : 'opacity-100';
 
   return (
     <>
@@ -94,7 +94,7 @@ export function Dashboard({ binId }: DashboardProps) {
         {/* Level Gauge Card & Modal */}
         <Dialog open={openModal === 'level'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
             <DialogTrigger asChild onClick={() => setOpenModal('level')}>
-                <Card className={`${cardBaseClasses} ${cardOpacityClass} lg:col-span-1`}>
+                <Card className={`${cardBaseClasses} lg:col-span-1`}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Container Level</CardTitle>
                         <Waves className="h-4 w-4 text-muted-foreground" />
@@ -124,7 +124,7 @@ export function Dashboard({ binId }: DashboardProps) {
         {/* Weight Display Card & Modal */}
          <Dialog open={openModal === 'weight'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
             <DialogTrigger asChild onClick={() => setOpenModal('weight')}>
-                <Card className={`${cardBaseClasses} ${cardOpacityClass} lg:col-span-2`}>
+                <Card className={`${cardBaseClasses} lg:col-span-2`}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Current Weight</CardTitle>
                         <Power className="h-4 w-4 text-muted-foreground" />
@@ -153,7 +153,7 @@ export function Dashboard({ binId }: DashboardProps) {
          {/* Weight Chart Card & Modal */}
         <Dialog open={openModal === 'chart'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
              <DialogTrigger asChild onClick={() => setOpenModal('chart')}>
-                <Card className={`${cardBaseClasses} ${cardOpacityClass} lg:col-span-3`}>
+                <Card className={`${cardBaseClasses} lg:col-span-3`}>
                     <div className="relative">
                         <WeightChart data={history} />
                         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
