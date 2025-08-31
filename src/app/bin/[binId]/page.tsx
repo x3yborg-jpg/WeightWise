@@ -13,9 +13,10 @@ interface BinPageProps {
     }
 }
 
-export default function BinPage({ params: { binId } }: BinPageProps) {
+export default function BinPage({ params }: BinPageProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { binId } = params;
 
   useEffect(() => {
     if (!loading && !user) {
