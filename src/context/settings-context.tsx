@@ -8,13 +8,10 @@ import { useAuth } from './auth-context';
 
 const DEFAULT_NOTIFICATION_INTERVAL = 1 * 60 * 60 * 1000; // 1 hour
 const DEFAULT_WARNING_LEVEL = 90; // 90%
-const DEFAULT_WARNING_WEIGHT = 35000; // 35kg in grams
 
 export interface UserSettings {
-    alertEmail: string;
     notificationInterval: number;
     warningThresholdLevel: number;
-    warningThresholdWeight: number; // Stored in grams
 }
 
 interface SettingsContextType {
@@ -28,20 +25,16 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [settings, setSettings] = useState<UserSettings>({
-      alertEmail: user?.email ?? '',
       notificationInterval: DEFAULT_NOTIFICATION_INTERVAL,
       warningThresholdLevel: DEFAULT_WARNING_LEVEL,
-      warningThresholdWeight: DEFAULT_WARNING_WEIGHT,
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
         setSettings({
-            alertEmail: '',
             notificationInterval: DEFAULT_NOTIFICATION_INTERVAL,
             warningThresholdLevel: DEFAULT_WARNING_LEVEL,
-            warningThresholdWeight: DEFAULT_WARNING_WEIGHT,
         });
         setLoading(false);
         return;
@@ -54,17 +47,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (snapshot.exists()) {
             const data = snapshot.val();
             setSettings({
-                alertEmail: data.alertEmail ?? user.email ?? '',
                 notificationInterval: data.notificationInterval ?? DEFAULT_NOTIFICATION_INTERVAL,
                 warningThresholdLevel: data.warningThresholdLevel ?? DEFAULT_WARNING_LEVEL,
-                warningThresholdWeight: data.warningThresholdWeight ?? DEFAULT_WARNING_WEIGHT,
             });
         } else {
-            const defaultSettings: UserSettings = {
-                alertEmail: user.email ?? '',
+            const defaultSettings: Omit<UserSettings, 'alertEmail'> = {
                 notificationInterval: DEFAULT_NOTIFICATION_INTERVAL,
                 warningThresholdLevel: DEFAULT_WARNING_LEVEL,
-                warningThresholdWeight: DEFAULT_WARNING_WEIGHT,
             };
             setSettings(defaultSettings);
             set(settingsRef, defaultSettings);

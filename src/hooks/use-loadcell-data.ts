@@ -69,14 +69,11 @@ export function useLoadcellData(binId: string) {
     const currentBin = bins.find(b => b.id === binId);
     if (!currentBin) return;
     
-    // Use custom thresholds from settings
+    // Use custom threshold from settings
     const levelThreshold = settings.warningThresholdLevel;
-    const weightThreshold = settings.warningThresholdWeight;
-
     const isLevelCritical = newData.level > levelThreshold;
-    const isWeightCritical = newData.weight > weightThreshold;
 
-    if (isLevelCritical && isWeightCritical) {
+    if (isLevelCritical) {
         // --- Add to Global Warning State (if not already warned) ---
         if (!isWarningActiveForThisBin) {
              addWarning({

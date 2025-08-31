@@ -13,9 +13,8 @@ import {
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Settings, Mail, Clock, Percent, Weight } from 'lucide-react';
+import { Loader2, Settings, Clock, Percent } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import {
@@ -45,14 +44,11 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
 
   const [notificationInterval, setNotificationInterval] = useState(settings.notificationInterval);
   const [warningThresholdLevel, setWarningThresholdLevel] = useState(settings.warningThresholdLevel);
-  const [warningThresholdWeightKg, setWarningThresholdWeightKg] = useState(settings.warningThresholdWeight / 1000);
-
 
   useEffect(() => {
     if(isDialogOpen) {
         setNotificationInterval(settings.notificationInterval);
         setWarningThresholdLevel(settings.warningThresholdLevel);
-        setWarningThresholdWeightKg(settings.warningThresholdWeight / 1000);
     }
   }, [settings, isDialogOpen]);
 
@@ -60,7 +56,6 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
     await updateSettings({ 
         notificationInterval,
         warningThresholdLevel,
-        warningThresholdWeight: warningThresholdWeightKg * 1000,
     });
     setIsDialogOpen(false);
     toast({ title: "Settings Updated", description: "Your global settings have been saved." });
@@ -103,28 +98,7 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
                         {warningThresholdLevel}%
                     </div>
                 </div>
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="weight-threshold" className="flex items-center gap-2 text-sm font-medium">
-                    <Weight className="h-4 w-4" />
-                    Warning Weight Threshold
-                </Label>
-                 <div className="flex items-center gap-4">
-                    <Input
-                        id="weight-threshold"
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        value={warningThresholdWeightKg}
-                        onChange={(e) => setWarningThresholdWeightKg(Number(e.target.value))}
-                        className="flex-1 bg-input/50"
-                    />
-                    <div className="w-16 text-center text-muted-foreground font-medium">
-                        kg
-                    </div>
-                </div>
-                <p className="text-xs text-muted-foreground">A warning will be triggered only when both the level and weight thresholds are exceeded.</p>
+                 <p className="text-xs text-muted-foreground">A warning will be triggered when the bin's level exceeds this value.</p>
             </div>
           <div className="space-y-2">
             <Label htmlFor="interval" className="flex items-center gap-2">
