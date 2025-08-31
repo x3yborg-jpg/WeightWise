@@ -3,7 +3,7 @@
 
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, use } from 'react';
 import { Dashboard } from '@/components/dashboard';
 import { Settings } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -13,12 +13,13 @@ import { useBins } from '@/context/bin-context';
 import ConcentricLoader from '@/components/ui/concentric-loader';
 
 interface BinPageProps {
-    params: {
+    params: Promise<{
         binId: string;
-    }
+    }>
 }
 
-export default function BinPage({ params: { binId } }: BinPageProps) {
+export default function BinPage({ params }: BinPageProps) {
+  const { binId } = use(params);
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { bins, loading: binsLoading } = useBins();
