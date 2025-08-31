@@ -9,6 +9,7 @@ import { useToast } from './use-toast';
 import { useWarnings } from '@/context/warning-context';
 import { useSettings } from '@/context/settings-context';
 import { useAuth } from '@/context/auth-context';
+import { playWarningSound } from '@/lib/audio';
 
 export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
@@ -73,7 +74,15 @@ export function useLoadcellData(binId: string) {
 
     if (isLevelCritical) {
         // --- Add to Global Warning State (if not already warned) ---
+        // This ensures the sound and initial toast only happen once when the state flips from not-critical to critical.
         if (!isWarningActiveForThisBin) {
+            playWarningSound();
+            toast({
+                title: `URGENT: Bin Level High`,
+                description: `The bin '${currentBin.name}' level is critical. Please empty it soon.`,
+                variant: 'destructive',
+                duration: 10000,
+            });
              addWarning({
                 binId: currentBin.id,
                 binName: currentBin.name,
