@@ -68,19 +68,22 @@ export default function BinPage({ params }: BinPageProps) {
                 <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary/20 opacity-20 blur-[100px]"></div>
             </div>
             
-            <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+                 {currentBin && (
+                    <div className="absolute top-0 right-4">
+                        <SettingsDialog bin={currentBin}>
+                            <Button variant="ghost" size="icon">
+                                <Settings className="h-6 w-6 text-muted-foreground transition-transform hover:rotate-45" />
+                            </Button>
+                        </SettingsDialog>
+                    </div>
+                 )}
+
                 <div className="text-center mb-12">
                   <div className="flex items-center justify-center gap-4">
                     <h1 className="text-4xl font-bold tracking-tighter text-foreground sm:text-5xl md:text-6xl font-heading capitalize">
                         {currentBin?.name ?? binId.replace('-', ' ')}
                     </h1>
-                    {currentBin && (
-                      <SettingsDialog bin={currentBin}>
-                         <Button variant="ghost" size="icon">
-                            <Settings className="h-6 w-6 text-muted-foreground transition-transform hover:rotate-45" />
-                         </Button>
-                      </SettingsDialog>
-                    )}
                   </div>
                   <p className="mt-4 text-lg text-muted-foreground">
                       Live Load Cell Monitoring
