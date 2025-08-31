@@ -39,12 +39,9 @@ export function AppSidebar() {
               <Link href={`/bin/${bin.id}`}>
                 <SidebarMenuButton
                   isActive={pathname === `/bin/${bin.id}`}
-                  asChild
                 >
-                  <>
-                    <Archive />
-                    <span>{bin.name}</span>
-                  </>
+                  <Archive />
+                  <span>{bin.name}</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
