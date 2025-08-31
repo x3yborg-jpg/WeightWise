@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { ref, onValue, set, get } from "firebase/database";
+import { ref, onValue, set, get, off } from "firebase/database";
 import { database } from "@/lib/firebase";
 
 export interface BinConfig {
@@ -21,7 +21,7 @@ interface BinContextType {
 const BinContext = createContext<BinContextType | undefined>(undefined);
 
 const INITIAL_BINS_CONFIG: BinConfig[] = [
-    { id: "bin1", name: "Main Warehouse Bin", deviceId: "DEV-1001", location: "Warehouse A" },
+    { id: "bin1", name: "Tree Side", deviceId: "DEV-1001", location: "Kallambalam" },
 ];
 
 async function initializeBinConfig() {
