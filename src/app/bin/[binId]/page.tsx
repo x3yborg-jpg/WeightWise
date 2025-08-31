@@ -53,9 +53,12 @@ export default function BinPage({ params: { binId } }: BinPageProps) {
 
   if (loading || !user) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <ModernLoader />
-      </div>
+        <div className="flex min-h-screen w-full">
+            <AppSidebar />
+            <main className="flex-1 flex items-center justify-center bg-background">
+                <ModernLoader />
+            </main>
+        </div>
     );
   }
   
