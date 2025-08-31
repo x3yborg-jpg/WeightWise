@@ -10,7 +10,7 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar"
-import { Archive, LogOut, MapPin, Wifi, WifiOff, Bell, AlertCircle } from "lucide-react"
+import { Archive, LogOut, MapPin, Wifi, WifiOff, Bell, AlertCircle, Trash2 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Link from 'next/link';
 import Image from "next/image";
@@ -35,7 +35,7 @@ export function AppSidebar() {
   const { logout } = useAuth();
   const [binStatus, setBinStatus] = useState<BinStatus>({});
   const { bins } = useBins();
-  const { warnings } = useWarnings();
+  const { warnings, removeWarning } = useWarnings();
 
 
   useEffect(() => {
@@ -105,7 +105,7 @@ export function AppSidebar() {
                             <p className="text-muted-foreground text-sm">No active warnings. All systems are normal.</p>
                         ) : (
                             warnings.map(warning => (
-                                <div key={warning.binId} className="p-3 rounded-lg border border-destructive/50 bg-destructive/10">
+                                <div key={warning.binId} className="relative p-3 rounded-lg border border-destructive/50 bg-destructive/10">
                                     <h3 className="font-semibold text-destructive-foreground">{warning.binName}</h3>
                                     <p className="text-sm text-muted-foreground">{warning.binLocation}</p>
                                     <div className="mt-2 flex items-center justify-between">
@@ -114,6 +114,15 @@ export function AppSidebar() {
                                             <Link href={`/bin/${warning.binId}`}>View Bin</Link>
                                         </Button>
                                     </div>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="absolute top-1 right-1 h-7 w-7 text-muted-foreground hover:bg-destructive/20 hover:text-destructive-foreground"
+                                        onClick={() => removeWarning(warning.binId)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        <span className="sr-only">Dismiss warning</span>
+                                    </Button>
                                 </div>
                             ))
                         )}
