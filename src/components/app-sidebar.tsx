@@ -24,6 +24,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { GlobalSettingsDialog } from "./global-settings-dialog";
+import { cn } from "@/lib/utils";
 
 interface BinStatus {
     [key: string]: boolean;
@@ -125,6 +126,7 @@ export function AppSidebar() {
           {bins.map(bin => {
             const isOnline = binStatus[bin.id] ?? false;
             const isActive = pathname === `/bin/${bin.id}`;
+            const hasWarning = warnings.some(w => w.binId === bin.id);
 
             return (
                 <SidebarMenuItem key={bin.id}>
@@ -135,7 +137,7 @@ export function AppSidebar() {
                         >
                         <div className="flex items-center justify-between w-full">
                             <div className="flex items-center gap-2 font-semibold text-foreground">
-                                <Archive className="h-4 w-4" />
+                                <Archive className={cn("h-4 w-4", hasWarning && "text-destructive animate-pulse")} />
                                 <span>{bin.name}</span>
                             </div>
                             <div className="flex items-center gap-1.5 text-xs">
