@@ -10,7 +10,7 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar"
-import { Archive, LogOut, Package2, MapPin, Wifi, WifiOff, PlusCircle } from "lucide-react"
+import { Archive, LogOut, Package2, MapPin, Wifi, WifiOff } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Link from 'next/link';
 import { useAuth } from "@/context/auth-context"
@@ -18,7 +18,6 @@ import { useEffect, useState } from "react";
 import { onValue, ref, off } from "firebase/database";
 import { database } from "@/lib/firebase";
 import { useBins } from "@/context/bin-context";
-import { AddBinDialog } from "./add-bin-dialog";
 
 interface BinStatus {
     [key: string]: boolean;
@@ -66,16 +65,11 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarContent>
-        <SidebarHeader className="flex items-center justify-between">
+        <SidebarHeader>
           <div className="flex items-center gap-2">
             <Package2 className="h-7 w-7 text-primary" />
             <span className="text-lg font-semibold font-heading">WeightWise</span>
           </div>
-           <AddBinDialog>
-             <button className="p-1 rounded-md hover:bg-muted">
-                <PlusCircle className="h-5 w-5 text-muted-foreground" />
-             </button>
-           </AddBinDialog>
         </SidebarHeader>
         <SidebarMenu>
           {bins.map(bin => {

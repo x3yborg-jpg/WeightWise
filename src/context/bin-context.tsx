@@ -15,7 +15,6 @@ export interface BinConfig {
 interface BinContextType {
   bins: BinConfig[];
   loading: boolean;
-  addBin: (name: string, location: string) => Promise<void>;
   updateBin: (binId: string, data: Partial<Omit<BinConfig, 'id'>>) => Promise<void>;
   deleteBin: (binId: string) => Promise<void>;
 }
@@ -74,33 +73,6 @@ export function BinProvider({ children }: { children: ReactNode }) {
 
   }, []);
 
-  const addBin = async (name: string, location: string) => {
-    setLoading(true);
-    const binConfigRef = ref(database, 'bins-config');
-    const snapshot = await get(binConfigRef);
-    const existingBins = snapshot.val() || {};
-    
-    // Find the highest bin number to generate a new ID
-    let maxBinNum = 0;
-    Object.keys(existingBins).forEach(binId => {
-        if (binId.startsWith('bin')) {
-            const num = parseInt(binId.replace('bin', ''), 10);
-            if (!isNaN(num) && num > maxBinNum) {
-                maxBinNum = num;
-            }
-        }
-    });
-
-    const newBinId = `bin${maxBinNum + 1}`;
-    const newDeviceId = `DEV-100${maxBinNum + 1}`;
-
-    const newBinData = { name, location, deviceId: newDeviceId };
-
-    const newBinRef = ref(database, `bins-config/${newBinId}`);
-    await set(newBinRef, newBinData);
-    setLoading(false);
-  }
-
   const updateBin = async (binId: string, data: Partial<Omit<BinConfig, 'id'>>) => {
     setLoading(true);
     const binRef = ref(database, `bins-config/${binId}`);
@@ -126,7 +98,6 @@ export function BinProvider({ children }: { children: ReactNode }) {
   const value = {
     bins,
     loading,
-    addBin,
     updateBin,
     deleteBin,
   };
