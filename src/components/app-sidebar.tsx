@@ -66,7 +66,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent>
         <SidebarHeader>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <Package2 className="h-7 w-7 text-primary" />
             <span className="text-lg font-semibold font-heading">WeightWise</span>
           </div>
