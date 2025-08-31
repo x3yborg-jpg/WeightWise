@@ -10,9 +10,10 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar"
-import { Archive, LogOut, Package2, MapPin, Wifi, WifiOff, Bell, AlertCircle } from "lucide-react"
+import { Archive, LogOut, MapPin, Wifi, WifiOff, Bell, AlertCircle } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Link from 'next/link';
+import Image from "next/image";
 import { useAuth } from "@/context/auth-context"
 import { useEffect, useState } from "react";
 import { onValue, ref, off } from "firebase/database";
@@ -75,7 +76,7 @@ export function AppSidebar() {
           <div className="flex items-center justify-between w-full">
             <GlobalSettingsDialog>
                 <div className="flex items-center gap-2 cursor-pointer group">
-                    <Package2 className="h-7 w-7 text-primary transition-transform group-hover:rotate-12" />
+                    <Image src="/trash-basket.png" alt="WeightWise Logo" width={28} height={28} className="transition-transform group-hover:rotate-12" />
                     <span className="text-lg font-semibold font-heading">WeightWise</span>
                 </div>
             </GlobalSettingsDialog>

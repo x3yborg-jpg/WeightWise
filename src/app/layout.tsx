@@ -23,6 +23,9 @@ const fontHeading = SpaceGrotesk({
 export const metadata: Metadata = {
   title: 'WeightWise Dashboard',
   description: 'A visually engaging, animated real-time dashboard to display load cell data from a Firebase Realtime Database.',
+  icons: {
+    icon: '/icon.png',
+  },
 };
 
 export default function RootLayout({
