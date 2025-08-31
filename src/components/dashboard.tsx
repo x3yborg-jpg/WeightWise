@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize } from 'lucide-react';
 import { WeightChart } from './weight-chart';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useAuth } from '@/context/auth-context';
 
 interface DashboardProps {
     binId: string;
@@ -59,7 +60,8 @@ function DashboardSkeleton() {
 }
 
 export function Dashboard({ binId }: DashboardProps) {
-  const { data, history, loading, error, isConnected } = useLoadcellData(binId);
+  const { user } = useAuth();
+  const { data, history, loading, error, isConnected } = useLoadcellData(binId, user);
   const [openModal, setOpenModal] = useState<'level' | 'weight' | 'chart' | null>(null);
 
   if (loading) {
@@ -67,7 +69,7 @@ export function Dashboard({ binId }: DashboardProps) {
   }
 
   const ConnectionStatusAlert = () => (
-     <Alert className="lg:col-span-3 bg-card/80 backdrop-blur-sm border-yellow-500/50 text-yellow-500">
+     <Alert className="lg:col-span-3 bg-yellow-500/10 border-yellow-500/50 text-yellow-400">
         <WifiOff className="h-4 w-4" />
         <AlertTitle>Device Offline</AlertTitle>
         <AlertDescription>The device is not sending data. Showing last known values.</AlertDescription>
@@ -177,19 +179,21 @@ export function Dashboard({ binId }: DashboardProps) {
 
 
          <div className="lg:col-span-3 mt-4 flex items-center justify-center text-sm text-muted-foreground">
-           {isConnected ? (
-              <div className="flex items-center gap-2 text-green-400">
-                <Wifi className="h-4 w-4 animate-pulse" />
-                <span>Device Online</span>
-              </div>
-           ) : (
-             !isConnected && !loading && (
-                <div className="flex items-center gap-2 text-yellow-500">
-                    <WifiOff className="h-4 w-4" />
-                    <span>Awaiting connection...</span>
-                </div>
-             )
-           )}
+            {isConnected ? (
+                !loading && (
+                    <div className="flex items-center gap-2 text-green-400">
+                        <Wifi className="h-4 w-4 animate-pulse" />
+                        <span>Device Online</span>
+                    </div>
+                )
+            ) : (
+                !loading && (
+                    <div className="flex items-center gap-2 text-yellow-500">
+                        <WifiOff className="h-4 w-4" />
+                        <span>Awaiting connection...</span>
+                    </div>
+                )
+            )}
         </div>
     </div>
     </>
