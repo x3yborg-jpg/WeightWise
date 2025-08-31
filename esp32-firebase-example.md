@@ -52,10 +52,9 @@ FirebaseConfig config;
 
 // --- STATE VARIABLES ---
 unsigned long sendDataPrevMillis = 0;
-// Note: The web dashboard checks for a new heartbeat every 30 minutes.
-// You can send data more frequently if needed (e.g., every 5-10 seconds),
-// but the "online" status on the dashboard will only timeout after 30 minutes
-// of inactivity.
+// Note: The web dashboard checks for a new IsON value every 30 minutes.
+// You should send data more frequently (e.g., every 5-10 seconds) to keep
+// the weight and level values fresh.
 unsigned long SEND_INTERVAL = 5000; // Send data every 5 seconds
 
 
@@ -104,14 +103,15 @@ void sendSensorData() {
   int level = getSimulatedLevel();
   int heartbeat = getHeartbeat();
 
-  Serial.printf("Sending data: Weight = %.2fg, Level = %d%%, Heartbeat = %d\n", weight, level, heartbeat);
+  Serial.printf("Sending data: Weight = %.2fg, Level = %d%%, IsON = %d\n", weight, level, heartbeat);
 
   // Create a JSON object to send. This will be sent to the "bin1" path.
   // The web app will read from this path.
   FirebaseJson json;
   json.set("weight", weight);
   json.set("level", level);
-  json.set("heartbeat", heartbeat);
+  json.set("IsON", heartbeat);
+  json.set("ID", "1001"); // Example Device ID
 
   // Update the "bin1" node in Firebase
   if (Firebase.updateNode(fbdo, "/bin1", json)) {
@@ -133,5 +133,6 @@ void sendSensorData() {
 4.  **Upload the code** to your ESP32.
 5.  **Open the Serial Monitor** at a baud rate of `115200` to see the log messages.
 
-The ESP32 will now push sensor data, including the new `heartbeat` value, to the `/bin1` path in your Firebase Realtime Database. The web app uses this heartbeat to determine if the device is online.
+The ESP32 will now push sensor data, including the new `IsON` value, to the `/bin1` path in your Firebase Realtime Database. The web app uses this heartbeat to determine if the device is online.
+
 

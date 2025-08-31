@@ -13,14 +13,13 @@ export interface LoadCellData {
   weight: number;
   level: number;
   timestamp: number;
-  isConnected: boolean;
 }
 
 export interface RawData {
+    ID?: number | string;
     weight: number;
     level: number;
-    heartbeat?: number; // Random value from 99-9999
-    IsON?: boolean;
+    IsON?: number;
 }
 
 // Function to generate sample data
@@ -36,7 +35,6 @@ const generateSampleData = (lastData?: LoadCellData): LoadCellData => {
     weight: Math.max(0, Math.min(MAX_WEIGHT_G, newWeight)), // Ensure weight is within limits
     level: newLevel,
     timestamp: Date.now(),
-    isConnected: true, // For demo purposes, we'll assume it's connected
   };
 };
 
@@ -69,27 +67,23 @@ export function useLoadcellData(binId: string) {
         const val: RawData = snapshot.val();
         
         // --- Heartbeat Logic ---
-        if (typeof val.heartbeat === 'number') {
+        if (typeof val.IsON === 'number') {
             setIsConnected(true);
             
-            // If we have a previous heartbeat value, clear the old timeout
             if (heartbeatTimeoutRef.current) {
                 clearTimeout(heartbeatTimeoutRef.current);
             }
             
-            // Set a new timeout to mark as disconnected if no new heartbeat arrives
             heartbeatTimeoutRef.current = setTimeout(() => {
                 setIsConnected(false);
             }, HEARTBEAT_TIMEOUT);
 
-            // Only push data if the heartbeat has actually changed
-            if (val.heartbeat !== lastHeartbeatRef.current) {
-                lastHeartbeatRef.current = val.heartbeat;
+            if (val.IsON !== lastHeartbeatRef.current) {
+                lastHeartbeatRef.current = val.IsON;
                 if (typeof val.weight === 'number' && typeof val.level === 'number') {
                     const newDataPoint: LoadCellData = {
                         weight: val.weight,
                         level: val.level,
-                        isConnected: true,
                         timestamp: Date.now()
                     };
 
@@ -102,8 +96,9 @@ export function useLoadcellData(binId: string) {
                 }
             }
         } else {
-            // Fallback to IsON if heartbeat is not present
-            setIsConnected(val.IsON === true);
+             // If no heartbeat (IsON) field, we can't determine status.
+             // Assume disconnected unless other logic dictates otherwise.
+            setIsConnected(false);
         }
 
       } else {
