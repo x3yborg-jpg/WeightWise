@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -7,7 +8,7 @@ import { useBins } from '@/context/bin-context';
 import { sendHighLevelNotification } from '@/ai/flows/notification-flow';
 import { useToast } from './use-toast';
 import { User } from 'firebase/auth';
-import { playWarningSound } from '@/lib/audio';
+import { useWarnings } from '@/context/warning-context';
 
 export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
@@ -15,7 +16,6 @@ export const MAX_WEIGHT_G = 40000; // 40kg in grams
 const HEARTBEAT_TIMEOUT = 1800000; // 30 minutes
 const NOTIFICATION_THRESHOLD = 90; // 90%
 const EMAIL_COOLDOWN = 10 * 60 * 1000; // 10 minutes for email
-const DASHBOARD_WARNING_INTERVAL = 1 * 60 * 60 * 1000; // 1 hour for dashboard warning
 
 export interface LoadCellData {
   weight: number;
@@ -54,41 +54,28 @@ export function useLoadcellData(binId: string, user: User | null) {
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
-  const [isWarningActive, setIsWarningActive] = useState(false);
+  
   const { bins } = useBins();
+  const { addWarning, removeWarning, warnings } = useWarnings();
   const { toast } = useToast();
 
   const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const warningIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastHeartbeatRef = useRef<number | null>(null);
   const lastEmailTimeRef = useRef<number>(0);
+  
+  const isWarningActiveForThisBin = warnings.some(w => w.binId === binId);
 
-  const clearWarningState = () => {
-      setIsWarningActive(false);
-      if (warningIntervalRef.current) {
-          clearInterval(warningIntervalRef.current);
-          warningIntervalRef.current = null;
-      }
-  };
-
-  const triggerDashboardWarning = (binName: string | undefined) => {
-      playWarningSound();
-      toast({
-          title: `URGENT: Bin Level High`,
-          description: `The bin '${binName || binId}' level is over ${NOTIFICATION_THRESHOLD}%. Please empty it soon.`,
-          variant: 'destructive',
-          duration: 10000,
-      });
-  };
 
   const handleNotificationsAndWarnings = (newData: LoadCellData) => {
     const currentBin = bins.find(b => b.id === binId);
+    if (!currentBin) return;
+
     const now = Date.now();
 
     if (newData.level > NOTIFICATION_THRESHOLD) {
-        // --- Email Notification Logic ---
+        // --- Email Notification Logic (only if not already warned) ---
         if (now - lastEmailTimeRef.current > EMAIL_COOLDOWN) {
-            if (currentBin && user?.email) {
+            if (user?.email) {
                 console.log(`Bin level ${newData.level}% is over threshold. Sending email notification.`);
                 lastEmailTimeRef.current = now;
                 sendHighLevelNotification({
@@ -115,24 +102,23 @@ export function useLoadcellData(binId: string, user: User | null) {
             }
         }
         
-        // --- Dashboard Warning Logic ---
-        if (!isWarningActive) {
-            setIsWarningActive(true);
-            triggerDashboardWarning(currentBin?.name); // Initial warning
-
-            // Set up recurring warning
-            if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
-            warningIntervalRef.current = setInterval(() => {
-                triggerDashboardWarning(currentBin?.name);
-            }, DASHBOARD_WARNING_INTERVAL);
+        // --- Add to Global Warning State ---
+        if (!isWarningActiveForThisBin) {
+             addWarning({
+                binId: currentBin.id,
+                binName: currentBin.name,
+                binLocation: currentBin.location,
+                level: newData.level,
+                timestamp: newData.timestamp,
+            });
         }
     } else {
-        // Level is below threshold, clear any active warnings.
-        if(isWarningActive) {
-            clearWarningState();
+        // Level is below threshold, clear any active warnings for this bin.
+        if(isWarningActiveForThisBin) {
+            removeWarning(binId);
             toast({
                 title: "Bin Level OK",
-                description: `The level for bin '${currentBin?.name || binId}' is now back to normal.`,
+                description: `The level for bin '${currentBin.name}' is now back to normal.`,
                 className: 'bg-green-500/10 border-green-500/50 text-green-400'
             });
         }
@@ -146,7 +132,6 @@ export function useLoadcellData(binId: string, user: User | null) {
     setLoading(true);
     setIsConnected(false);
     setIsDemoMode(false);
-    clearWarningState();
     if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
     lastHeartbeatRef.current = null;
     lastEmailTimeRef.current = 0;
@@ -207,7 +192,6 @@ export function useLoadcellData(binId: string, user: User | null) {
     return () => {
       off(dbRef, 'value', listener);
       if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
-      clearWarningState();
     };
   }, [binId, user?.email]); // Rerun if user changes
 
@@ -240,5 +224,5 @@ export function useLoadcellData(binId: string, user: User | null) {
   
   const latestData = dataHistory.length > 0 ? dataHistory[dataHistory.length - 1] : null;
 
-  return { data: latestData, history: dataHistory, loading, error, isConnected, isWarningActive };
+  return { data: latestData, history: dataHistory, loading, error, isConnected };
 }

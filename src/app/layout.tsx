@@ -1,3 +1,4 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
@@ -6,6 +7,7 @@ import { Inter, Space_Grotesk as SpaceGrotesk } from "next/font/google"
 import { AuthProvider } from '@/context/auth-context';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { BinProvider } from '@/context/bin-context';
+import { WarningProvider } from '@/context/warning-context';
 
 const fontSans = Inter({
   subsets: ["latin"],
@@ -36,12 +38,14 @@ export default function RootLayout({
       )}>
         <AuthProvider>
           <BinProvider>
-            <SidebarProvider>
-              <div className="relative flex min-h-screen flex-col">
-                  {children}
-              </div>
-              <Toaster />
-            </SidebarProvider>
+            <WarningProvider>
+              <SidebarProvider>
+                <div className="relative flex min-h-screen flex-col">
+                    {children}
+                </div>
+                <Toaster />
+              </SidebarProvider>
+            </WarningProvider>
           </BinProvider>
         </AuthProvider>
       </body>

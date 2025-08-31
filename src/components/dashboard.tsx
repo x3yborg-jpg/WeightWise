@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLoadcellData } from '@/hooks/use-loadcell-data';
 import { WeightDisplay } from '@/components/weight-display';
 import { LevelGauge } from '@/components/level-gauge';
@@ -13,10 +13,15 @@ import { WeightChart } from './weight-chart';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
+import { playWarningSound } from '@/lib/audio';
+import { useToast } from '@/hooks/use-toast';
+import { useWarnings } from '@/context/warning-context';
 
 interface DashboardProps {
     binId: string;
 }
+
+const DASHBOARD_WARNING_INTERVAL = 1 * 60 * 60 * 1000; // 1 hour for dashboard warning
 
 function DashboardSkeleton() {
   return (
@@ -62,8 +67,45 @@ function DashboardSkeleton() {
 
 export function Dashboard({ binId }: DashboardProps) {
   const { user } = useAuth();
-  const { data, history, loading, error, isConnected, isWarningActive } = useLoadcellData(binId, user);
+  const { data, history, loading, error, isConnected } = useLoadcellData(binId, user);
   const [openModal, setOpenModal] = useState<'level' | 'weight' | 'chart' | null>(null);
+  const { warnings } = useWarnings();
+  const { toast } = useToast();
+  const warningIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const isWarningActive = warnings.some(w => w.binId === binId);
+
+   const triggerDashboardWarning = (binName: string) => {
+      playWarningSound();
+      toast({
+          title: `URGENT: Bin Level High`,
+          description: `The bin '${binName}' level is critical. Please empty it soon.`,
+          variant: 'destructive',
+          duration: 10000,
+      });
+  };
+
+  useEffect(() => {
+    const activeWarning = warnings.find(w => w.binId === binId);
+    if (activeWarning) {
+        // Initial warning when component mounts or warning becomes active
+        triggerDashboardWarning(activeWarning.binName);
+
+        // Set up recurring warning
+        if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
+        warningIntervalRef.current = setInterval(() => {
+            triggerDashboardWarning(activeWarning.binName);
+        }, DASHBOARD_WARNING_INTERVAL);
+    }
+
+    // Cleanup interval when component unmounts or warning is cleared
+    return () => {
+        if (warningIntervalRef.current) {
+            clearInterval(warningIntervalRef.current);
+        }
+    };
+  }, [binId, warnings]);
+
 
   if (loading) {
     return <DashboardSkeleton />;
