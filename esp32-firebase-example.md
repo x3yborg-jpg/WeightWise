@@ -39,6 +39,12 @@ int getSimulatedLevel() {
   return random(0, 100);
 }
 
+// Generates a random heartbeat value to indicate the device is online
+int getHeartbeat() {
+  return random(100, 9999);
+}
+
+
 // --- FIREBASE OBJECTS ---
 FirebaseData fbdo;
 FirebaseAuth auth;
@@ -46,11 +52,11 @@ FirebaseConfig config;
 
 // --- STATE VARIABLES ---
 unsigned long sendDataPrevMillis = 0;
-bool isConnected = false;
-
-// Function Prototypes
-void updateConnectionStatus(bool status);
-void sendSensorData();
+// Note: The web dashboard checks for a new heartbeat every 30 minutes.
+// You can send data more frequently if needed (e.g., every 5-10 seconds),
+// but the "online" status on the dashboard will only timeout after 30 minutes
+// of inactivity.
+unsigned long SEND_INTERVAL = 5000; // Send data every 5 seconds
 
 
 void setup() {
@@ -86,52 +92,30 @@ void setup() {
 }
 
 void loop() {
-  // Check Wi-Fi connection status
-  bool currentWifiStatus = (WiFi.status() == WL_CONNECTED);
-
-  // If connection status changes, update Firebase
-  if (currentWifiStatus != isConnected) {
-    isConnected = currentWifiStatus;
-    updateConnectionStatus(isConnected);
-  }
-
-  // Send sensor data every 5 seconds if connected
-  if (isConnected && millis() - sendDataPrevMillis > 5000) {
+  // Send sensor data at the defined interval
+  if (WiFi.status() == WL_CONNECTED && millis() - sendDataPrevMillis > SEND_INTERVAL) {
     sendDataPrevMillis = millis();
     sendSensorData();
-  }
-}
-
-void updateConnectionStatus(bool status) {
-  FirebaseJson json;
-  json.set("isConnected", status);
-
-  Serial.printf("Updating connection status to: %s\n", status ? "Online" : "Offline");
-  
-  // Update only the isConnected and timestamp fields at the root
-  if (Firebase.updateNode(fbdo, "/", json)) {
-    Serial.println("Connection status updated successfully.");
-  } else {
-    Serial.println("Failed to update connection status.");
-    Serial.println("REASON: " + fbdo.errorReason());
   }
 }
 
 void sendSensorData() {
   float weight = getSimulatedWeight();
   int level = getSimulatedLevel();
+  int heartbeat = getHeartbeat();
 
-  Serial.printf("Sending data: Weight = %.2fg, Level = %d%%\n", weight, level);
+  Serial.printf("Sending data: Weight = %.2fg, Level = %d%%, Heartbeat = %d\n", weight, level, heartbeat);
 
-  // Create a JSON object to send
+  // Create a JSON object to send. This will be sent to the "bin1" path.
+  // The web app will read from this path.
   FirebaseJson json;
   json.set("weight", weight);
   json.set("level", level);
-  json.set("isConnected", true);
+  json.set("heartbeat", heartbeat);
 
-  // Update the root node in Firebase
-  if (Firebase.updateNode(fbdo, "/", json)) {
-    Serial.println("Data sent successfully.");
+  // Update the "bin1" node in Firebase
+  if (Firebase.updateNode(fbdo, "/bin1", json)) {
+    Serial.println("Data sent successfully to /bin1.");
   } else {
     Serial.println("Failed to send data.");
     Serial.println("REASON: " + fbdo.errorReason());
@@ -149,4 +133,5 @@ void sendSensorData() {
 4.  **Upload the code** to your ESP32.
 5.  **Open the Serial Monitor** at a baud rate of `115200` to see the log messages.
 
-The ESP32 will now push sensor data to the root of your Firebase Realtime Database every 5 seconds. The web app will automatically add a timestamp when it receives the data.
+The ESP32 will now push sensor data, including the new `heartbeat` value, to the `/bin1` path in your Firebase Realtime Database. The web app uses this heartbeat to determine if the device is online.
+

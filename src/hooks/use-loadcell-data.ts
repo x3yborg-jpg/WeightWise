@@ -7,7 +7,7 @@ import { database } from '@/lib/firebase';
 export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
 export const MAX_WEIGHT_G = 40000; // 40kg in grams
-const HEARTBEAT_TIMEOUT = 30000; // 30 seconds
+const HEARTBEAT_TIMEOUT = 1800000; // 30 minutes
 
 export interface LoadCellData {
   weight: number;
