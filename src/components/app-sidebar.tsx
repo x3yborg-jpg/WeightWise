@@ -41,8 +41,10 @@ export function AppSidebar() {
                   isActive={pathname === `/bin/${bin.id}`}
                   asChild
                 >
-                  <Archive />
-                  <span>{bin.name}</span>
+                  <>
+                    <Archive />
+                    <span>{bin.name}</span>
+                  </>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
