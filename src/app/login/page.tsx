@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,9 +18,14 @@ export default function LoginPage() {
   const { login, user } = useAuth();
   const router = useRouter();
 
+  useEffect(() => {
+    if (user) {
+      router.push('/');
+    }
+  }, [user, router]);
+
   if (user) {
-    router.push('/');
-    return null;
+    return null; // Don't render the login form if the user is already logged in and redirecting
   }
 
   const handleLogin = async (e: React.FormEvent) => {
