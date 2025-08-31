@@ -10,14 +10,14 @@ import {
   SidebarTrigger,
   SidebarFooter
 } from "@/components/ui/sidebar"
-import { Archive, LogOut, Package2 } from "lucide-react"
+import { Archive, LogOut, Package2, MapPin } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Link from 'next/link';
 import { useAuth } from "@/context/auth-context"
 
 const BINS = [
-    { id: "bin1", name: "Bin 1" },
-    // { id: "bin2", name: "Bin 2" }, // Future bins can be added here
+    { id: "bin1", name: "Main Warehouse Bin", deviceId: "DEV-1001", location: "Warehouse A" },
+    // { id: "bin2", name: "Bin 2", deviceId: "DEV-1002", location: "Warehouse B" }, 
 ];
 
 export function AppSidebar() {
@@ -39,9 +39,19 @@ export function AppSidebar() {
               <Link href={`/bin/${bin.id}`}>
                 <SidebarMenuButton
                   isActive={pathname === `/bin/${bin.id}`}
+                  className="h-auto flex-col items-start"
                 >
-                  <Archive />
-                  <span>{bin.name}</span>
+                  <div className="flex items-center gap-2 font-semibold text-foreground">
+                    <Archive className="h-4 w-4" />
+                    <span>{bin.name}</span>
+                  </div>
+                  <div className="pl-6 text-xs text-muted-foreground space-y-1 mt-1">
+                     <div className="flex items-center gap-2">
+                        <MapPin className="h-3 w-3" />
+                        <span>{bin.location}</span>
+                     </div>
+                     <p className="font-mono text-[10px]">ID: {bin.deviceId}</p>
+                  </div>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
