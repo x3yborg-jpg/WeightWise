@@ -64,49 +64,44 @@ export function useLoadcellData(binId: string) {
   const lastDataRef = useRef<string | null>(null);
   
 
-  const handleNotificationsAndWarnings = (newData: LoadCellData) => {
-    const currentBin = bins.find(b => b.id === binId);
-    if (!currentBin) return;
-
-    const levelThreshold = settings.warningThresholdLevel;
-    const isLevelCritical = newData.level > levelThreshold;
-    const isCurrentlyWarning = warnings.some(w => w.binId === binId);
-    
-    if (isLevelCritical) {
-      if (!isCurrentlyWarning) {
-        // --- Level just became critical ---
-        playWarningSound();
-        toast({
-          title: `URGENT: Bin Level High`,
-          description: `The bin '${currentBin.name}' level is critical. Please empty it soon.`,
-          variant: 'destructive',
-          duration: 10000,
-        });
-        addWarning({
-          binId: currentBin.id,
-          binName: currentBin.name,
-          binLocation: currentBin.location,
-          level: newData.level,
-          timestamp: newData.timestamp,
-        });
-      }
-      // If already warning, do nothing to avoid repeated sounds/toasts.
-    } else {
-      if (isCurrentlyWarning) {
-        // --- Level just became normal ---
-        removeWarning(binId);
-        toast({
-          title: "Bin Status OK",
-          description: `The status for bin '${currentBin.name}' is now back to normal.`,
-          className: 'bg-green-500/10 border-green-500/50 text-green-400',
-        });
-      }
-      // If not critical and not warning, do nothing.
-    }
-  };
-
-
   useEffect(() => {
+    const handleNotificationsAndWarnings = (newData: LoadCellData, currentWarnings: typeof warnings) => {
+        const currentBin = bins.find(b => b.id === binId);
+        if (!currentBin) return;
+
+        const levelThreshold = settings.warningThresholdLevel;
+        const isLevelCritical = newData.level > levelThreshold;
+        const isCurrentlyWarning = currentWarnings.some(w => w.binId === binId);
+
+        if (isLevelCritical) {
+            if (!isCurrentlyWarning) {
+                playWarningSound();
+                toast({
+                  title: `URGENT: Bin Level High`,
+                  description: `The bin '${currentBin.name}' level is critical. Please empty it soon.`,
+                  variant: 'destructive',
+                  duration: 10000,
+                });
+                addWarning({
+                  binId: currentBin.id,
+                  binName: currentBin.name,
+                  binLocation: currentBin.location,
+                  level: newData.level,
+                  timestamp: newData.timestamp,
+                });
+            }
+        } else {
+            if (isCurrentlyWarning) {
+                removeWarning(binId);
+                toast({
+                  title: "Bin Status OK",
+                  description: `The status for bin '${currentBin.name}' is now back to normal.`,
+                  className: 'bg-green-500/10 border-green-500/50 text-green-400',
+                });
+            }
+        }
+    };
+
     // Reset state when binId changes
     setDataHistory([]);
     setError(null);
@@ -124,7 +119,6 @@ export function useLoadcellData(binId: string) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
-        // This check prevents processing the same data point multiple times
         const dataString = JSON.stringify({ w: val.weight, l: val.level });
         if (dataString === lastDataRef.current) {
             return;
@@ -153,8 +147,9 @@ export function useLoadcellData(binId: string) {
                         ? newHistory.slice(newHistory.length - MAX_DATA_POINTS) 
                         : newHistory;
             });
-
-            handleNotificationsAndWarnings(newDataPoint);
+            
+            // By passing the latest warnings state directly, we avoid stale closures
+            handleNotificationsAndWarnings(newDataPoint, warnings);
         }
       } else {
          setError(`No data found at '/${binId}'. Displaying demo data.`);
@@ -176,10 +171,35 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
     };
-  }, [binId, user, settings]);
+  }, [binId, user, settings, addWarning, removeWarning, bins, toast, warnings]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
+    const handleDemoNotifications = (newData: LoadCellData) => {
+        const currentBin = bins.find(b => b.id === binId);
+        if (!currentBin) return;
+
+        const levelThreshold = settings.warningThresholdLevel;
+        const isLevelCritical = newData.level > levelThreshold;
+        const isCurrentlyWarning = warnings.some(w => w.binId === binId);
+
+        if (isLevelCritical) {
+            if (!isCurrentlyWarning) {
+                addWarning({
+                    binId: currentBin.id,
+                    binName: currentBin.name,
+                    binLocation: currentBin.location,
+                    level: newData.level,
+                    timestamp: newData.timestamp,
+                });
+            }
+        } else {
+            if (isCurrentlyWarning) {
+                removeWarning(binId);
+            }
+        }
+    };
+    
     if (isDemoMode) {
       const initialData: LoadCellData[] = [];
       let lastData: LoadCellData | undefined = undefined;
@@ -192,7 +212,7 @@ export function useLoadcellData(binId: string) {
       intervalId = setInterval(() => {
         setDataHistory(prevHistory => {
           const newPoint = generateSampleData(prevHistory[prevHistory.length - 1]);
-          handleNotificationsAndWarnings(newPoint);
+          handleDemoNotifications(newPoint);
           const newHistory = [...prevHistory, newPoint];
            return newHistory.length > MAX_DATA_POINTS 
                 ? newHistory.slice(newHistory.length - MAX_DATA_POINTS)
@@ -203,7 +223,7 @@ export function useLoadcellData(binId: string) {
     return () => {
       if (intervalId) clearInterval(intervalId);
     }
-  }, [isDemoMode, binId, user, settings]);
+  }, [isDemoMode, binId, settings, addWarning, removeWarning, bins, warnings]);
   
   const latestData = dataHistory.length > 0 ? dataHistory[dataHistory.length - 1] : null;
 
