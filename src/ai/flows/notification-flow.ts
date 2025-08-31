@@ -11,6 +11,8 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { format } from 'date-fns';
+import { firestore } from '@/lib/firebase';
+import { collection, addDoc } from 'firebase/firestore';
 
 const HighLevelNotificationInputSchema = z.object({
   userEmail: z.string().describe('The email address of the user to notify.'),
@@ -30,18 +32,26 @@ export type HighLevelNotificationOutput = z.infer<typeof HighLevelNotificationOu
 
 
 export async function sendHighLevelNotification(input: HighLevelNotificationInput): Promise<HighLevelNotificationOutput> {
-  // In a real app, this would use a service like SendGrid or Nodemailer.
-  // For this prototype, we'll generate the email content and log it.
   const output = await notificationFlow(input);
-  console.log(`
-    ==================== EMAIL NOTIFICATION ====================
-    TO: ${input.userEmail}
-    SUBJECT: ${output.subject}
-    ------------------------------------------------------------
-    BODY:
-    ${output.body}
-    ============================================================
-  `);
+
+  // Instead of logging, write the email to the 'mail' collection in Firestore.
+  // The 'Trigger Email' extension will pick this up and send the email.
+  try {
+    const mailRef = collection(firestore, 'mail');
+    await addDoc(mailRef, {
+      to: [input.userEmail],
+      message: {
+        subject: output.subject,
+        html: output.body,
+      },
+    });
+    console.log(`Email document successfully written to Firestore for ${input.userEmail}`);
+  } catch (error) {
+    console.error("Error writing email document to Firestore:", error);
+    // Re-throw the error to be caught by the calling function in useLoadcellData
+    throw new Error("Failed to queue email for sending.");
+  }
+  
   return output;
 }
 
