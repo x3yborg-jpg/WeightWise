@@ -5,7 +5,7 @@ import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Dashboard } from '@/components/dashboard';
-import { Loader2, Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { SettingsDialog } from '@/components/settings-dialog';
@@ -15,6 +15,26 @@ interface BinPageProps {
     params: {
         binId: string;
     }
+}
+
+function ModernLoader() {
+  return (
+    <div className="flex h-16 w-16 items-center justify-center">
+      <div className="relative h-full w-full">
+        <div 
+          className="absolute h-full w-full rounded-full border-2 border-primary/20" 
+        />
+        <div 
+          className="absolute h-full w-full animate-spin rounded-full border-t-2 border-primary"
+          style={{ animationDuration: '1.2s' }}
+        />
+         <div 
+          className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-primary/20"
+          style={{ animation: 'ping-pong 2s ease-in-out infinite' }}
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function BinPage({ params }: BinPageProps) {
@@ -35,7 +55,7 @@ export default function BinPage({ params }: BinPageProps) {
   if (loading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <ModernLoader />
       </div>
     );
   }
