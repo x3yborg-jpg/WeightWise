@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from '@/lib/utils';
 import { Inter, Space_Grotesk as SpaceGrotesk } from "next/font/google"
+import { AuthProvider } from '@/context/auth-context';
 
 const fontSans = Inter({
   subsets: ["latin"],
@@ -31,10 +32,12 @@ export default function RootLayout({
         fontSans.variable,
         fontHeading.variable
       )}>
-        <div className="relative flex min-h-screen flex-col">
-          <div className="flex-1">{children}</div>
-        </div>
-        <Toaster />
+        <AuthProvider>
+          <div className="relative flex min-h-screen flex-col">
+            <div className="flex-1">{children}</div>
+          </div>
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

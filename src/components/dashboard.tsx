@@ -7,10 +7,11 @@ import { LevelGauge } from '@/components/level-gauge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize } from 'lucide-react';
+import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize, LogOut } from 'lucide-react';
 import { WeightChart } from './weight-chart';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from './ui/button';
+import { useAuth } from '@/context/auth-context';
 
 function DashboardSkeleton() {
   return (
@@ -57,6 +58,7 @@ function DashboardSkeleton() {
 export function Dashboard() {
   const { data, history, loading, error, isConnected } = useLoadcellData();
   const [openModal, setOpenModal] = useState<'level' | 'weight' | 'chart' | null>(null);
+  const { logout } = useAuth();
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -84,7 +86,14 @@ export function Dashboard() {
   const cardOpacityClass = !isConnected ? 'opacity-30 pointer-events-none' : 'opacity-100';
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <>
+    <div className="absolute top-4 right-4">
+        <Button variant="ghost" size="sm" onClick={logout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
+      </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-16">
         {!isConnected && <ConnectionStatusAlert />}
 
         {/* Level Gauge Card & Modal */}
@@ -188,5 +197,6 @@ export function Dashboard() {
            )}
         </div>
     </div>
+    </>
   );
 }

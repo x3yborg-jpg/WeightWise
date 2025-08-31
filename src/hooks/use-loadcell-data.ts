@@ -40,24 +40,24 @@ export function useLoadcellData() {
   const [isDemoMode, setIsDemoMode] = useState(false);
 
   useEffect(() => {
-    const dbRef = ref(database); // Reference the root of the database
+    // Reference the 'bin1' node instead of the root
+    const dbRef = ref(database, 'bin1');
 
     const listener = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
         setIsDemoMode(false);
         const val = snapshot.val();
-        // Client will add the timestamp, it's no longer expected from firebase
-        if (
-          typeof val.weight === 'number' && 
-          typeof val.level === 'number' && 
-          typeof val.isConnected === 'boolean'
-        ) {
-          setIsConnected(val.isConnected);
-          
-          if(val.isConnected) {
+        
+        const isDeviceConnected = val.IsON === true || val.isConnected === true;
+        setIsConnected(isDeviceConnected);
+
+        if (typeof val.weight === 'number' && typeof val.level === 'number') {
+          if (isDeviceConnected) {
             const newDataPoint: LoadCellData = {
-              ...val,
-              timestamp: Date.now() // Add timestamp on arrival
+              weight: val.weight,
+              level: val.level,
+              isConnected: isDeviceConnected,
+              timestamp: Date.now()
             };
 
             setDataHistory((prevHistory) => {
@@ -71,10 +71,10 @@ export function useLoadcellData() {
           setError(null);
         } else {
           setIsConnected(false);
-          setError("Received invalid data structure from Firebase. Expected { weight: number, level: number, isConnected: boolean } at the root.");
+          setError("Received invalid data structure from Firebase. Expected { weight: number, level: number, IsON: boolean } under the 'bin1' key.");
         }
       } else {
-         setError("No data found at the root of your database. Displaying demo data. Connect a device to see live data.");
+         setError("No data found at '/bin1' in your database. Displaying demo data. Connect a device to see live data.");
          setIsConnected(true); // For demo
          setIsDemoMode(true);
       }
