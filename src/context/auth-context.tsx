@@ -2,7 +2,18 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { 
+    onAuthStateChanged, 
+    User, 
+    signInWithEmailAndPassword, 
+    signOut, 
+    EmailAuthProvider, 
+    reauthenticateWithCredential,
+    createUserWithEmailAndPassword,
+    sendPasswordResetEmail,
+    GoogleAuthProvider,
+    signInWithPopup
+} from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
@@ -10,8 +21,11 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   reauthenticate: (password: string) => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
   };
+  
+  const signUp = async (email: string, password: string) => {
+    await createUserWithEmailAndPassword(auth, email, password);
+  };
 
   const logout = async () => {
     await signOut(auth);
@@ -40,17 +58,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const reauthenticate = async (password: string) => {
-    if (!user) throw new Error("No user is signed in.");
-    const credential = EmailAuthProvider.credential(user.email!, password);
+    if (!user || !user.email) throw new Error("No user is signed in or user has no email.");
+    const credential = EmailAuthProvider.credential(user.email, password);
     await reauthenticateWithCredential(user, credential);
   };
+  
+  const sendPasswordReset = async (email: string) => {
+      await sendPasswordResetEmail(auth, email);
+  }
+  
+  const signInWithGoogle = async () => {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+  }
 
   const value = {
     user,
     loading,
     login,
+    signUp,
     logout,
-    reauthenticate
+    reauthenticate,
+    sendPasswordReset,
+    signInWithGoogle
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

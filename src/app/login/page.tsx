@@ -1,21 +1,48 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, Loader2 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import Link from 'next/link';
+
+function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
+    return (
+      <svg
+        {...props}
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="4" />
+        <line x1="21.17" x2="12" y1="8" y2="8" />
+        <line x1="3.95" x2="8.54" y1="6.06" y2="14" />
+        <line x1="10.88" x2="15.46" y1="21.94" y2="14" />
+      </svg>
+    )
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { login, user } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { login, signInWithGoogle, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -23,10 +50,6 @@ export default function LoginPage() {
       router.push('/');
     }
   }, [user, router]);
-
-  if (user) {
-    return null; // Don't render the login form if the user is already logged in and redirecting
-  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,11 +59,32 @@ export default function LoginPage() {
       await login(email, password);
       router.push('/');
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+      let errorMessage = 'An unexpected error occurred.';
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password. Please try again.';
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    setError(null);
+    try {
+      await signInWithGoogle();
+      router.push('/');
+    } catch (err: any) {
+      setError(err.message || 'Failed to sign in with Google.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  if (user) {
+    return null; // Don't render the login form if the user is already logged in and redirecting
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -58,15 +102,27 @@ export default function LoginPage() {
             Sign in to access your WeightWise dashboard.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            {error && (
+        <CardContent className="space-y-4">
+             {error && (
               <Alert variant="destructive" className="bg-destructive/10">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Login Failed</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+            <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={googleLoading || loading}>
+                {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
+                Sign in with Google
+            </Button>
+            <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                    <Separator />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                </div>
+            </div>
+          <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -76,11 +132,19 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={loading || googleLoading}
                 className="bg-input/50"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+                <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                     <Link href="/forgot-password" passHref>
+                        <span className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                            Forgot password?
+                        </span>
+                     </Link>
+                </div>
               <Input
                 id="password"
                 type="password"
@@ -88,14 +152,23 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={loading || googleLoading}
                 className="bg-input/50"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || googleLoading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Login'}
             </Button>
           </form>
         </CardContent>
+        <CardFooter className="flex flex-col items-center justify-center text-sm">
+            <p className="text-muted-foreground">
+                Don't have an account?{' '}
+                <Link href="/signup" passHref>
+                    <span className="font-semibold text-primary hover:underline">Sign up</span>
+                </Link>
+            </p>
+        </CardFooter>
       </Card>
     </div>
   );
