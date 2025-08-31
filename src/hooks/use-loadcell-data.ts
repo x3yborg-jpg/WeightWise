@@ -15,7 +15,6 @@ export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
 export const MAX_WEIGHT_G = 40000; // 40kg in grams
 const HEARTBEAT_TIMEOUT = 1800000; // 30 minutes
-const NOTIFICATION_THRESHOLD = 90; // 90%
 const EMAIL_COOLDOWN = 10 * 60 * 1000; // 10 minutes for email
 
 export interface LoadCellData {
@@ -74,13 +73,20 @@ export function useLoadcellData(binId: string) {
     if (!currentBin) return;
 
     const now = Date.now();
+    
+    // Use custom thresholds from settings
+    const levelThreshold = settings.warningThresholdLevel;
+    const weightThreshold = settings.warningThresholdWeight;
 
-    if (newData.level > NOTIFICATION_THRESHOLD) {
-        // --- Email Notification Logic (only if not already warned) ---
+    const isLevelCritical = newData.level > levelThreshold;
+    const isWeightCritical = newData.weight > weightThreshold;
+
+    if (isLevelCritical && isWeightCritical) {
+        // --- Email Notification Logic (with cooldown) ---
         if (now - lastEmailTimeRef.current > EMAIL_COOLDOWN) {
             const alertEmail = settings.alertEmail || user?.email;
             if (alertEmail) {
-                console.log(`Bin level ${newData.level}% is over threshold. Sending email notification.`);
+                console.log(`Bin level ${newData.level}% and weight ${newData.weight}g are over thresholds. Sending email notification.`);
                 lastEmailTimeRef.current = now;
                 sendHighLevelNotification({
                     userEmail: alertEmail,
@@ -106,7 +112,7 @@ export function useLoadcellData(binId: string) {
             }
         }
         
-        // --- Add to Global Warning State ---
+        // --- Add to Global Warning State (if not already warned) ---
         if (!isWarningActiveForThisBin) {
              addWarning({
                 binId: currentBin.id,
@@ -117,12 +123,12 @@ export function useLoadcellData(binId: string) {
             });
         }
     } else {
-        // Level is below threshold, clear any active warnings for this bin.
+        // Condition no longer met, clear any active warnings for this bin.
         if(isWarningActiveForThisBin) {
             removeWarning(binId);
             toast({
-                title: "Bin Level OK",
-                description: `The level for bin '${currentBin.name}' is now back to normal.`,
+                title: "Bin Status OK",
+                description: `The status for bin '${currentBin.name}' is now back to normal.`,
                 className: 'bg-green-500/10 border-green-500/50 text-green-400'
             });
         }
@@ -197,7 +203,7 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
     };
-  }, [binId, user?.email, settings.alertEmail]); // Rerun if user/settings change
+  }, [binId, user, settings]); // Rerun if user/settings change
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
@@ -224,7 +230,7 @@ export function useLoadcellData(binId: string) {
     return () => {
       if (intervalId) clearInterval(intervalId);
     }
-  }, [isDemoMode, binId, user?.email, settings.alertEmail]);
+  }, [isDemoMode, binId, user, settings]);
   
   const latestData = dataHistory.length > 0 ? dataHistory[dataHistory.length - 1] : null;
 
