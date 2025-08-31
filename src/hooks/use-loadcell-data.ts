@@ -67,42 +67,38 @@ export function useLoadcellData(binId: string) {
   const handleNotificationsAndWarnings = (newData: LoadCellData) => {
     const currentBin = bins.find(b => b.id === binId);
     if (!currentBin) return;
-    
-    const isWarningActiveForThisBin = warnings.some(w => w.binId === binId);
+
+    const isCurrentlyWarning = warnings.some(w => w.binId === binId);
     const levelThreshold = settings.warningThresholdLevel;
     const isLevelCritical = newData.level > levelThreshold;
 
-    if (isLevelCritical) {
-        // --- Add to Global Warning State (if not already warned) ---
-        // This ensures the sound and initial toast only happen once when the state flips from not-critical to critical.
-        if (!isWarningActiveForThisBin) {
-            playWarningSound();
-            toast({
-                title: `URGENT: Bin Level High`,
-                description: `The bin '${currentBin.name}' level is critical. Please empty it soon.`,
-                variant: 'destructive',
-                duration: 10000,
-            });
-             addWarning({
-                binId: currentBin.id,
-                binName: currentBin.name,
-                binLocation: currentBin.location,
-                level: newData.level,
-                timestamp: newData.timestamp,
-            });
-        }
-    } else {
-        // Condition no longer met, clear any active warnings for this bin.
-        if(isWarningActiveForThisBin) {
-            removeWarning(binId);
-            toast({
-                title: "Bin Status OK",
-                description: `The status for bin '${currentBin.name}' is now back to normal.`,
-                className: 'bg-green-500/10 border-green-500/50 text-green-400'
-            });
-        }
+    if (isLevelCritical && !isCurrentlyWarning) {
+      // --- Level just became critical ---
+      playWarningSound();
+      toast({
+        title: `URGENT: Bin Level High`,
+        description: `The bin '${currentBin.name}' level is critical. Please empty it soon.`,
+        variant: 'destructive',
+        duration: 10000,
+      });
+      addWarning({
+        binId: currentBin.id,
+        binName: currentBin.name,
+        binLocation: currentBin.location,
+        level: newData.level,
+        timestamp: newData.timestamp,
+      });
+    } else if (!isLevelCritical && isCurrentlyWarning) {
+      // --- Level just became normal ---
+      removeWarning(binId);
+      toast({
+        title: "Bin Status OK",
+        description: `The status for bin '${currentBin.name}' is now back to normal.`,
+        className: 'bg-green-500/10 border-green-500/50 text-green-400',
+      });
     }
   };
+
 
   useEffect(() => {
     // Reset state when binId changes
@@ -199,7 +195,7 @@ export function useLoadcellData(binId: string) {
     return () => {
       if (intervalId) clearInterval(intervalId);
     }
-  }, [isDemoMode, binId, user, settings]);
+  }, [isDemoMode, binId, user, settings, warnings, addWarning, removeWarning]);
   
   const latestData = dataHistory.length > 0 ? dataHistory[dataHistory.length - 1] : null;
 
