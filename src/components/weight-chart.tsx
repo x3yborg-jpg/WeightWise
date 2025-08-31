@@ -10,7 +10,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
-import { type LoadCellData, MAX_DATA_POINTS } from "@/hooks/use-loadcell-data"
+import { type LoadCellData, MAX_DATA_POINTS, MAX_WEIGHT_G } from "@/hooks/use-loadcell-data"
 
 interface WeightChartProps {
   data: LoadCellData[];
@@ -21,6 +21,7 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
   // Determine the unit based on the maximum weight in the current dataset
   const maxWeight = Math.max(...data.map(item => item.weight), 0);
   const unit = maxWeight >= 1000 ? 'kg' : 'g';
+  const maxCapacityDisplay = unit === 'kg' ? MAX_WEIGHT_G / 1000 : MAX_WEIGHT_G;
 
   const chartData = data.map((item, index) => ({
     time: item.timestamp,
@@ -43,10 +44,10 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
   const yAxisDomain = [
     0,
     (dataMax: number) => {
-      // If we are in kg, the max can be 10. Otherwise, it can be 10000g.
+      // If we are in kg, the max can be 40. Otherwise, it can be 40000g.
       // Give a little buffer (e.g., 20%) to the max value for better visualization.
-      const buffer = unit === 'kg' ? 1 : 100;
-      const upperLimit = unit === 'kg' ? 10 : 10000;
+      const buffer = unit === 'kg' ? 2 : 200;
+      const upperLimit = unit === 'kg' ? MAX_WEIGHT_G / 1000 : MAX_WEIGHT_G;
       return Math.min(Math.max(dataMax * 1.2, buffer), upperLimit);
     }
   ];
@@ -144,7 +145,7 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
        <CardHeader className="items-start p-6">
         <CardTitle className="font-heading tracking-tight">Weight Over Time</CardTitle>
         <CardDescription>
-          A real-time view of the load cell readings. Max capacity: 10kg.
+          A real-time view of the load cell readings. Max capacity: {maxCapacityDisplay}{unit}.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-2 pt-0 h-[250px]">

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ref, onValue, off } from 'firebase/database';
 import { database } from '@/lib/firebase';
 
 export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
-const DEMO_DATA_INTERVAL = 5000; // 5 seconds
-const MAX_WEIGHT_G = 10000; // 10kg in grams
+const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
+export const MAX_WEIGHT_G = 40000; // 40kg in grams
+const HEARTBEAT_TIMEOUT = 30000; // 30 seconds
 
 export interface LoadCellData {
   weight: number;
@@ -15,74 +16,105 @@ export interface LoadCellData {
   isConnected: boolean;
 }
 
+export interface RawData {
+    weight: number;
+    level: number;
+    heartbeat?: number; // Random value from 99-9999
+    IsON?: boolean;
+}
+
 // Function to generate sample data
 const generateSampleData = (lastData?: LoadCellData): LoadCellData => {
   const lastWeight = lastData?.weight ?? 500;
-  const lastLevel = lastData?.level ?? 50;
+  const lastLevel = lastData?.level ?? 10;
 
-  // Simulate a weight change, e.g., +/- 500g
-  const newWeight = lastWeight + (Math.random() - 0.5) * 1000;
-  const newLevel = Math.max(0, Math.min(100, lastLevel + (Math.random() - 0.45) * 10)); // Tend to fill up slightly
+  // Simulate a weight change, e.g., +/- 1000g
+  const newWeight = lastWeight + (Math.random() - 0.5) * 2000;
+  const newLevel = Math.max(0, Math.min(100, lastLevel + (Math.random() - 0.45) * 5));
 
   return {
-    weight: Math.max(0, Math.min(MAX_WEIGHT_G, newWeight)), // Ensure weight is between 0 and 10kg
+    weight: Math.max(0, Math.min(MAX_WEIGHT_G, newWeight)), // Ensure weight is within limits
     level: newLevel,
     timestamp: Date.now(),
     isConnected: true, // For demo purposes, we'll assume it's connected
   };
 };
 
-export function useLoadcellData() {
+export function useLoadcellData(binId: string) {
   const [dataHistory, setDataHistory] = useState<LoadCellData[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
+  const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastHeartbeatRef = useRef<number | null>(null);
+
   useEffect(() => {
-    // Reference the 'bin1' node instead of the root
-    const dbRef = ref(database, 'bin1');
+    // Reset state when binId changes
+    setDataHistory([]);
+    setError(null);
+    setLoading(true);
+    setIsConnected(false);
+    setIsDemoMode(false);
+    if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
+    lastHeartbeatRef.current = null;
+
+    const dbRef = ref(database, binId);
 
     const listener = onValue(dbRef, (snapshot) => {
+      setLoading(false);
       if (snapshot.exists()) {
         setIsDemoMode(false);
-        const val = snapshot.val();
+        const val: RawData = snapshot.val();
         
-        const isDeviceConnected = val.IsON === true || val.isConnected === true;
-        setIsConnected(isDeviceConnected);
+        // --- Heartbeat Logic ---
+        if (typeof val.heartbeat === 'number') {
+            setIsConnected(true);
+            
+            // If we have a previous heartbeat value, clear the old timeout
+            if (heartbeatTimeoutRef.current) {
+                clearTimeout(heartbeatTimeoutRef.current);
+            }
+            
+            // Set a new timeout to mark as disconnected if no new heartbeat arrives
+            heartbeatTimeoutRef.current = setTimeout(() => {
+                setIsConnected(false);
+            }, HEARTBEAT_TIMEOUT);
 
-        if (typeof val.weight === 'number' && typeof val.level === 'number') {
-          if (isDeviceConnected) {
-            const newDataPoint: LoadCellData = {
-              weight: val.weight,
-              level: val.level,
-              isConnected: isDeviceConnected,
-              timestamp: Date.now()
-            };
+            // Only push data if the heartbeat has actually changed
+            if (val.heartbeat !== lastHeartbeatRef.current) {
+                lastHeartbeatRef.current = val.heartbeat;
+                if (typeof val.weight === 'number' && typeof val.level === 'number') {
+                    const newDataPoint: LoadCellData = {
+                        weight: val.weight,
+                        level: val.level,
+                        isConnected: true,
+                        timestamp: Date.now()
+                    };
 
-            setDataHistory((prevHistory) => {
-              const newHistory = [...prevHistory, newDataPoint];
-              if (newHistory.length > MAX_DATA_POINTS) {
-                return newHistory.slice(newHistory.length - MAX_DATA_POINTS);
-              }
-              return newHistory;
-            });
-          }
-          setError(null);
+                    setDataHistory((prevHistory) => {
+                        const newHistory = [...prevHistory, newDataPoint];
+                        return newHistory.length > MAX_DATA_POINTS 
+                                ? newHistory.slice(newHistory.length - MAX_DATA_POINTS) 
+                                : newHistory;
+                    });
+                }
+            }
         } else {
-          setIsConnected(false);
-          setError("Received invalid data structure from Firebase. Expected { weight: number, level: number, IsON: boolean } under the 'bin1' key.");
+            // Fallback to IsON if heartbeat is not present
+            setIsConnected(val.IsON === true);
         }
+
       } else {
-         setError("No data found at '/bin1' in your database. Displaying demo data. Connect a device to see live data.");
-         setIsConnected(true); // For demo
+         setError(`No data found at '/${binId}'. Displaying demo data.`);
+         setIsConnected(true);
          setIsDemoMode(true);
       }
-      setLoading(false);
-    }, (error) => {
-      console.error("Firebase Error:", error);
+    }, (err) => {
+      console.error("Firebase Error:", err);
       setIsConnected(false);
-      if (error.message.includes("PERMISSION_DENIED")) {
+      if (err.message.includes("PERMISSION_DENIED")) {
         setError("Permission denied. Please check your Firebase Realtime Database security rules.");
       } else {
         setError("Failed to connect to Firebase. Please check your firebase.ts configuration and network connection.");
@@ -92,8 +124,11 @@ export function useLoadcellData() {
 
     return () => {
       off(dbRef, 'value', listener);
+      if (heartbeatTimeoutRef.current) {
+        clearTimeout(heartbeatTimeoutRef.current);
+      }
     };
-  }, []);
+  }, [binId]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
@@ -112,10 +147,9 @@ export function useLoadcellData() {
         setDataHistory(prevHistory => {
           const newPoint = generateSampleData(prevHistory[prevHistory.length - 1]);
           const newHistory = [...prevHistory, newPoint];
-           if (newHistory.length > MAX_DATA_POINTS) {
-              return newHistory.slice(newHistory.length - MAX_DATA_POINTS);
-            }
-            return newHistory;
+           return newHistory.length > MAX_DATA_POINTS 
+                ? newHistory.slice(newHistory.length - MAX_DATA_POINTS)
+                : newHistory;
         });
       }, DEMO_DATA_INTERVAL);
     }

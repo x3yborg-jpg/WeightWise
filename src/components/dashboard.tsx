@@ -7,11 +7,13 @@ import { LevelGauge } from '@/components/level-gauge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize, LogOut } from 'lucide-react';
+import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize } from 'lucide-react';
 import { WeightChart } from './weight-chart';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Button } from './ui/button';
-import { useAuth } from '@/context/auth-context';
+
+interface DashboardProps {
+    binId: string;
+}
 
 function DashboardSkeleton() {
   return (
@@ -55,10 +57,9 @@ function DashboardSkeleton() {
   );
 }
 
-export function Dashboard() {
-  const { data, history, loading, error, isConnected } = useLoadcellData();
+export function Dashboard({ binId }: DashboardProps) {
+  const { data, history, loading, error, isConnected } = useLoadcellData(binId);
   const [openModal, setOpenModal] = useState<'level' | 'weight' | 'chart' | null>(null);
-  const { logout } = useAuth();
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -68,15 +69,15 @@ export function Dashboard() {
      <Alert className="lg:col-span-3 bg-card/80 backdrop-blur-sm border-yellow-500/50 text-yellow-500">
         <WifiOff className="h-4 w-4" />
         <AlertTitle>Device Offline</AlertTitle>
-        <AlertDescription>The device is not connected. Waiting for a signal...</AlertDescription>
+        <AlertDescription>The device is not sending data. Waiting for a signal...</AlertDescription>
       </Alert>
   );
 
-  if (error) {
+  if (error && !loading) {
     return (
       <Alert variant="destructive" className="bg-destructive/10">
         <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Connection Error</AlertTitle>
+        <AlertTitle>Error</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
@@ -87,13 +88,7 @@ export function Dashboard() {
 
   return (
     <>
-    <div className="absolute top-4 right-4">
-        <Button variant="ghost" size="sm" onClick={logout}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Logout
-        </Button>
-      </div>
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-16">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {!isConnected && <ConnectionStatusAlert />}
 
         {/* Level Gauge Card & Modal */}
@@ -182,7 +177,7 @@ export function Dashboard() {
 
 
          <div className="lg:col-span-3 mt-4 flex items-center justify-center text-sm text-muted-foreground">
-           {isConnected && data ? (
+           {isConnected ? (
               <div className="flex items-center gap-2 text-green-400">
                 <Wifi className="h-4 w-4 animate-pulse" />
                 <span>Device Online</span>
