@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A flow for sending notifications when a bin level is high.
@@ -11,7 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { format } from 'date-fns';
 
-export const HighLevelNotificationInputSchema = z.object({
+const HighLevelNotificationInputSchema = z.object({
   userEmail: z.string().describe('The email address of the user to notify.'),
   binName: z.string().describe('The name of the bin.'),
   binLocation: z.string().describe('The location of the bin.'),
