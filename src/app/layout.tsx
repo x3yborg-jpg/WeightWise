@@ -5,10 +5,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { cn } from '@/lib/utils';
 import { Inter, Space_Grotesk as SpaceGrotesk } from "next/font/google"
 import { AuthProvider } from '@/context/auth-context';
-import { SidebarProvider } from '@/components/ui/sidebar';
 import { BinProvider } from '@/context/bin-context';
 import { WarningProvider } from '@/context/warning-context';
 import { SettingsProvider } from '@/context/settings-context';
+import { AppWrapper } from './app-wrapper';
 
 const fontSans = Inter({
   subsets: ["latin"],
@@ -44,12 +44,10 @@ export default function RootLayout({
           <SettingsProvider>
             <BinProvider>
               <WarningProvider>
-                <SidebarProvider>
-                  <div className="relative flex min-h-screen flex-col">
-                      {children}
-                  </div>
-                  <Toaster />
-                </SidebarProvider>
+                 <AppWrapper>
+                    {children}
+                 </AppWrapper>
+                 <Toaster />
               </WarningProvider>
             </BinProvider>
           </SettingsProvider>
