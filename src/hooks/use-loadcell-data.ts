@@ -62,7 +62,7 @@ export function useLoadcellData(binId: string) {
   const { toast } = useToast();
 
   const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastHeartbeatRef = useRef<number | null>(null);
+  const lastDataRef = useRef<string | null>(null);
   const lastEmailTimeRef = useRef<number>(0);
   
   const isWarningActiveForThisBin = warnings.some(w => w.binId === binId);
@@ -143,7 +143,7 @@ export function useLoadcellData(binId: string) {
     setIsConnected(false);
     setIsDemoMode(false);
     if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
-    lastHeartbeatRef.current = null;
+    lastDataRef.current = null;
     lastEmailTimeRef.current = 0;
 
     const dbRef = ref(database, binId);
@@ -154,35 +154,36 @@ export function useLoadcellData(binId: string) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
+        if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
+        heartbeatTimeoutRef.current = setTimeout(() => setIsConnected(false), HEARTBEAT_TIMEOUT);
+
         if (typeof val.IsON === 'number') {
             setIsConnected(true);
-            
-            if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
-            heartbeatTimeoutRef.current = setTimeout(() => setIsConnected(false), HEARTBEAT_TIMEOUT);
-
-            if (val.IsON !== lastHeartbeatRef.current) {
-                lastHeartbeatRef.current = val.IsON;
-                if (typeof val.weight === 'number' && typeof val.level === 'number') {
-                    const newDataPoint: LoadCellData = {
-                        weight: val.weight,
-                        level: val.level,
-                        timestamp: Date.now()
-                    };
-
-                    setDataHistory((prevHistory) => {
-                        const newHistory = [...prevHistory, newDataPoint];
-                        return newHistory.length > MAX_DATA_POINTS 
-                                ? newHistory.slice(newHistory.length - MAX_DATA_POINTS) 
-                                : newHistory;
-                    });
-
-                    handleNotificationsAndWarnings(newDataPoint);
-                }
-            }
         } else {
             setIsConnected(false);
         }
 
+        const dataString = JSON.stringify({ w: val.weight, l: val.level });
+        if (dataString !== lastDataRef.current) {
+            lastDataRef.current = dataString;
+
+             if (typeof val.weight === 'number' && typeof val.level === 'number') {
+                const newDataPoint: LoadCellData = {
+                    weight: val.weight,
+                    level: val.level,
+                    timestamp: Date.now()
+                };
+
+                setDataHistory((prevHistory) => {
+                    const newHistory = [...prevHistory, newDataPoint];
+                    return newHistory.length > MAX_DATA_POINTS 
+                            ? newHistory.slice(newHistory.length - MAX_DATA_POINTS) 
+                            : newHistory;
+                });
+
+                handleNotificationsAndWarnings(newDataPoint);
+            }
+        }
       } else {
          setError(`No data found at '/${binId}'. Displaying demo data.`);
          setIsConnected(true);
