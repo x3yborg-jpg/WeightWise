@@ -18,21 +18,17 @@ interface WeightChartProps {
 }
 
 export function WeightChart({ data, isModal = false }: WeightChartProps) {
-  // Determine the unit based on the maximum weight in the current dataset
-  const maxWeight = Math.max(...data.map(item => item.weight), 0);
-  const unit = maxWeight >= 1000 ? 'kg' : 'g';
-  const maxCapacityDisplay = unit === 'kg' ? MAX_WEIGHT_G / 1000 : MAX_WEIGHT_G;
+  const unit = 'kg';
 
   const chartData = data.map((item, index) => ({
     time: item.timestamp,
     index: index, // Use index for the x-axis
-    // Consistently use the determined unit for all points in the chart
-    weight: unit === 'kg' ? item.weight / 1000 : item.weight,
+    weight: item.weight / 1000, // Always convert to kg
   }));
 
   const chartConfig = {
     weight: {
-      label: `Weight (${unit})`,
+      label: `Weight (kg)`,
       color: "hsl(var(--primary))",
     },
   }
@@ -44,10 +40,8 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
   const yAxisDomain = [
     0,
     (dataMax: number) => {
-      // If we are in kg, the max can be 40. Otherwise, it can be 40000g.
-      // Give a little buffer (e.g., 20%) to the max value for better visualization.
-      const buffer = unit === 'kg' ? 2 : 200;
-      const upperLimit = unit === 'kg' ? MAX_WEIGHT_G / 1000 : MAX_WEIGHT_G;
+      const buffer = 2;
+      const upperLimit = MAX_WEIGHT_G / 1000;
       return Math.min(Math.max(dataMax * 1.2, buffer), upperLimit);
     }
   ];
@@ -99,7 +93,7 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
                 <div className="flex items-baseline gap-2">
                    <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: chartConfig.weight.color}}></div>
                    <span className="text-muted-foreground">Weight:</span>
-                   <span className="font-bold text-foreground">{`${item.payload.weight.toFixed(2)} ${unit}`}</span>
+                   <span className="font-bold text-foreground">{`${item.payload.weight.toFixed(1)} ${unit}`}</span>
                 </div>
               )}
                />}
@@ -145,7 +139,7 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
        <CardHeader className="items-start p-6">
         <CardTitle className="font-heading tracking-tight">Weight Over Time</CardTitle>
         <CardDescription>
-          A real-time view of the load cell readings. Max capacity: {maxCapacityDisplay}{unit}.
+          A real-time view of the load cell readings.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-2 pt-0 h-[250px]">

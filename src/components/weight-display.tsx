@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -54,9 +55,9 @@ const useAnimatedCounter = (targetValue: number, duration: number = 800) => {
 export function WeightDisplay({ weight, size = 'normal' }: WeightDisplayProps) {
   const animatedWeight = useAnimatedCounter(weight);
 
-  const displayUnit = animatedWeight >= 1000 ? 'kg' : 'g';
-  const displayValue = animatedWeight >= 1000 ? animatedWeight / 1000 : animatedWeight;
-  const decimalPlaces = displayUnit === 'kg' ? 2 : 0;
+  const displayUnit = 'kg';
+  const displayValue = animatedWeight / 1000;
+  const decimalPlaces = 1;
   
   const textSizeClass = size === 'large' ? 'text-8xl' : 'text-6xl';
   const unitSizeClass = size === 'large' ? 'text-3xl' : 'text-xl';
