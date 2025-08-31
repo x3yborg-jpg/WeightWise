@@ -24,9 +24,9 @@ export function WarningProvider({ children }: { children: ReactNode }) {
 
   const addWarning = useCallback((newWarning: Warning) => {
     setWarnings(prevWarnings => {
-      // Avoid adding duplicate warnings for the same bin
-      if (prevWarnings.some(w => w.binId === newWarning.binId)) {
-        return prevWarnings;
+      const warningExists = prevWarnings.some(w => w.binId === newWarning.binId);
+      if (warningExists) {
+        return prevWarnings.map(w => w.binId === newWarning.binId ? newWarning : w);
       }
       return [...prevWarnings, newWarning];
     });

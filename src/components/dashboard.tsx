@@ -15,8 +15,8 @@ import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
 import { playWarningSound } from '@/lib/audio';
 import { useToast } from '@/hooks/use-toast';
-import { useWarnings } from '@/context/warning-context';
 import { useSettings } from '@/context/settings-context';
+import { useBins } from '@/context/bin-context';
 
 interface DashboardProps {
     binId: string;
@@ -66,45 +66,52 @@ function DashboardSkeleton() {
 
 export function Dashboard({ binId }: DashboardProps) {
   const { user } = useAuth();
-  const { data, history, loading, error, isConnected } = useLoadcellData(binId);
+  const { data, history, loading, error, isConnected, isAlarmActive } = useLoadcellData(binId);
   const [openModal, setOpenModal] = useState<'level' | 'weight' | 'chart' | null>(null);
-  const { warnings } = useWarnings();
   const { settings } = useSettings();
+  const { bins } = useBins();
   const { toast } = useToast();
   const warningIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const hasTriggeredInitialWarning = useRef(false);
 
-  const isWarningActive = warnings.some(w => w.binId === binId);
+   const triggerDashboardWarning = () => {
+      const currentBin = bins.find(b => b.id === binId);
+      if (!currentBin) return;
 
-   const triggerDashboardWarning = (binName: string) => {
       playWarningSound();
       toast({
           title: `URGENT: Bin Level High`,
-          description: `The bin '${binName}' level is critical. Please empty it soon.`,
+          description: `The bin '${currentBin.name}' level is critical. Please empty it soon.`,
           variant: 'destructive',
           duration: 10000,
       });
   };
 
   useEffect(() => {
-    const activeWarning = warnings.find(w => w.binId === binId);
-    if (activeWarning) {
-        // Initial warning when component mounts or warning becomes active
-        triggerDashboardWarning(activeWarning.binName);
+    if (isAlarmActive) {
+        if (!hasTriggeredInitialWarning.current) {
+            triggerDashboardWarning();
+            hasTriggeredInitialWarning.current = true;
+        }
 
-        // Set up recurring warning
         if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
         warningIntervalRef.current = setInterval(() => {
-            triggerDashboardWarning(activeWarning.binName);
+            triggerDashboardWarning();
         }, settings.notificationInterval);
+
+    } else {
+        hasTriggeredInitialWarning.current = false;
+        if (warningIntervalRef.current) {
+            clearInterval(warningIntervalRef.current);
+        }
     }
 
-    // Cleanup interval when component unmounts or warning is cleared
     return () => {
         if (warningIntervalRef.current) {
             clearInterval(warningIntervalRef.current);
         }
     };
-  }, [binId, warnings, settings.notificationInterval]);
+  }, [isAlarmActive, binId, settings.notificationInterval, bins, toast]);
 
 
   if (loading) {
@@ -143,13 +150,13 @@ export function Dashboard({ binId }: DashboardProps) {
   return (
     <>
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {isWarningActive && <HighLevelWarningAlert />}
+        {isAlarmActive && <HighLevelWarningAlert />}
         {!isConnected && <ConnectionStatusAlert />}
 
         {/* Level Gauge Card & Modal */}
         <Dialog open={openModal === 'level'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
             <DialogTrigger asChild onClick={() => setOpenModal('level')}>
-                <Card className={cn(cardBaseClasses, "lg:col-span-1", isWarningActive && "border-destructive hover:border-destructive/80")}>
+                <Card className={cn(cardBaseClasses, "lg:col-span-1", isAlarmActive && "border-destructive hover:border-destructive/80")}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Container Level</CardTitle>
                         <Waves className="h-4 w-4 text-muted-foreground" />
@@ -252,5 +259,3 @@ export function Dashboard({ binId }: DashboardProps) {
     </>
   );
 }
-
-    

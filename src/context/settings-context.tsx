@@ -4,45 +4,35 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ref, onValue, set, get, off } from "firebase/database";
 import { database } from "@/lib/firebase";
-import { useAuth } from './auth-context';
 
 const DEFAULT_NOTIFICATION_INTERVAL = 1 * 60 * 60 * 1000; // 1 hour
 const DEFAULT_WARNING_LEVEL = 90; // 90%
 
-export interface UserSettings {
+export interface GlobalSettings {
     notificationInterval: number;
     warningThresholdLevel: number;
 }
 
 interface SettingsContextType {
-  settings: UserSettings;
+  settings: GlobalSettings;
   loading: boolean;
-  updateSettings: (newSettings: Partial<UserSettings>) => Promise<void>;
+  updateSettings: (newSettings: Partial<GlobalSettings>) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
+const settingsRef = ref(database, 'global-settings');
+
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const [settings, setSettings] = useState<UserSettings>({
+  const [settings, setSettings] = useState<GlobalSettings>({
       notificationInterval: DEFAULT_NOTIFICATION_INTERVAL,
       warningThresholdLevel: DEFAULT_WARNING_LEVEL,
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
-        setSettings({
-            notificationInterval: DEFAULT_NOTIFICATION_INTERVAL,
-            warningThresholdLevel: DEFAULT_WARNING_LEVEL,
-        });
-        setLoading(false);
-        return;
-    }
-
     setLoading(true);
-    const settingsRef = ref(database, `user-settings/${user.uid}`);
-
+    
     const listener = onValue(settingsRef, (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
@@ -51,31 +41,27 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 warningThresholdLevel: data.warningThresholdLevel ?? DEFAULT_WARNING_LEVEL,
             });
         } else {
-            const defaultSettings: Omit<UserSettings, 'alertEmail'> = {
+            // If no global settings, create them with defaults
+            const defaultSettings = {
                 notificationInterval: DEFAULT_NOTIFICATION_INTERVAL,
                 warningThresholdLevel: DEFAULT_WARNING_LEVEL,
             };
-            setSettings(defaultSettings);
             set(settingsRef, defaultSettings);
+            setSettings(defaultSettings);
         }
         setLoading(false);
     }, (error) => {
-        console.error("Error fetching user settings:", error);
+        console.error("Error fetching global settings:", error);
         setLoading(false);
     });
 
     return () => {
         off(settingsRef, 'value', listener);
     }
-  }, [user]);
+  }, []);
 
-  const updateSettings = async (newSettings: Partial<UserSettings>) => {
-    if (!user) {
-        console.error("Cannot update settings: no user is signed in.");
-        return;
-    }
+  const updateSettings = async (newSettings: Partial<GlobalSettings>) => {
     setLoading(true);
-    const settingsRef = ref(database, `user-settings/${user.uid}`);
     
     const snapshot = await get(settingsRef);
     const currentSettings = snapshot.exists() ? snapshot.val() : settings;
@@ -83,6 +69,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const updatedSettings = { ...currentSettings, ...newSettings };
     
     await set(settingsRef, updatedSettings);
+    // The onValue listener will update the state, so we just set loading to false.
     setLoading(false);
   };
 

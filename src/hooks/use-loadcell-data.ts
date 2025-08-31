@@ -2,14 +2,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue, off, update } from 'firebase/database';
 import { database } from '@/lib/firebase';
-import { useBins } from '@/context/bin-context';
-import { useToast } from './use-toast';
-import { useWarnings } from '@/context/warning-context';
 import { useSettings } from '@/context/settings-context';
-import { useAuth } from '@/context/auth-context';
-import { playWarningSound } from '@/lib/audio';
 
 export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
@@ -20,6 +15,7 @@ export interface LoadCellData {
   weight: number;
   level: number;
   timestamp: number;
+  isAlarmActive?: boolean;
 }
 
 export interface RawData {
@@ -27,6 +23,7 @@ export interface RawData {
     weight: number;
     level: number;
     IsON?: number;
+    isAlarmActive?: boolean;
 }
 
 // Function to generate sample data
@@ -44,72 +41,34 @@ const generateSampleData = (lastData?: LoadCellData): LoadCellData => {
     weight: Math.max(0, Math.min(MAX_WEIGHT_G, newWeight)),
     level: lastLevel,
     timestamp: Date.now(),
+    isAlarmActive: false,
   };
 };
 
 export function useLoadcellData(binId: string) {
-  const { user } = useAuth();
   const [dataHistory, setDataHistory] = useState<LoadCellData[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [isAlarmActive, setIsAlarmActive] = useState(false);
   
-  const { bins } = useBins();
-  const { settings } = useSettings();
-  const { addWarning, removeWarning, warnings } = useWarnings();
-  const { toast } = useToast();
-
+  const { settings, loading: settingsLoading } = useSettings();
   const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastDataRef = useRef<string | null>(null);
   
-
   useEffect(() => {
-    const handleNotificationsAndWarnings = (newData: LoadCellData, currentWarnings: typeof warnings) => {
-        const currentBin = bins.find(b => b.id === binId);
-        if (!currentBin) return;
-
-        const levelThreshold = settings.warningThresholdLevel;
-        const isLevelCritical = newData.level > levelThreshold;
-        const isCurrentlyWarning = currentWarnings.some(w => w.binId === binId);
-
-        if (isLevelCritical) {
-            if (!isCurrentlyWarning) {
-                playWarningSound();
-                toast({
-                  title: `URGENT: Bin Level High`,
-                  description: `The bin '${currentBin.name}' level is critical. Please empty it soon.`,
-                  variant: 'destructive',
-                  duration: 10000,
-                });
-                addWarning({
-                  binId: currentBin.id,
-                  binName: currentBin.name,
-                  binLocation: currentBin.location,
-                  level: newData.level,
-                  timestamp: newData.timestamp,
-                });
-            }
-        } else {
-            if (isCurrentlyWarning) {
-                removeWarning(binId);
-                toast({
-                  title: "Bin Status OK",
-                  description: `The status for bin '${currentBin.name}' is now back to normal.`,
-                  className: 'bg-green-500/10 border-green-500/50 text-green-400',
-                });
-            }
-        }
-    };
-
-    // Reset state when binId changes
+    // Reset state when binId changes or settings are not loaded
+    if (settingsLoading) {
+        setLoading(true);
+        return;
+    }
     setDataHistory([]);
     setError(null);
     setLoading(true);
     setIsConnected(false);
     setIsDemoMode(false);
+    setIsAlarmActive(false);
     if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
-    lastDataRef.current = null;
 
     const dbRef = ref(database, binId);
 
@@ -119,26 +78,20 @@ export function useLoadcellData(binId: string) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
-        const dataString = JSON.stringify({ w: val.weight, l: val.level });
-        if (dataString === lastDataRef.current) {
-            return;
-        }
-        lastDataRef.current = dataString;
-
         if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
         heartbeatTimeoutRef.current = setTimeout(() => setIsConnected(false), HEARTBEAT_TIMEOUT);
 
-        if (typeof val.IsON === 'number') {
-            setIsConnected(true);
-        } else {
-            setIsConnected(false);
-        }
+        setIsConnected(!!val.IsON && val.IsON !== 0);
+        
+        const alarmState = val.isAlarmActive ?? false;
+        setIsAlarmActive(alarmState);
 
         if (typeof val.weight === 'number' && typeof val.level === 'number') {
             const newDataPoint: LoadCellData = {
                 weight: val.weight,
                 level: val.level,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                isAlarmActive: alarmState,
             };
 
             setDataHistory((prevHistory) => {
@@ -148,12 +101,15 @@ export function useLoadcellData(binId: string) {
                         : newHistory;
             });
             
-            // By passing the latest warnings state directly, we avoid stale closures
-            handleNotificationsAndWarnings(newDataPoint, warnings);
+            // Centralized logic to update alarm status in Firebase
+            const shouldBeAlarmActive = newDataPoint.level > settings.warningThresholdLevel;
+            if (alarmState !== shouldBeAlarmActive) {
+                update(dbRef, { isAlarmActive: shouldBeAlarmActive });
+            }
         }
       } else {
-         setError(`No data found at '/${binId}'. Displaying demo data.`);
-         setIsConnected(true);
+         setError(`No data found for this bin. Displaying demo data.`);
+         setIsConnected(true); // Demo is always "connected"
          setIsDemoMode(true);
       }
     }, (err) => {
@@ -171,36 +127,13 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
     };
-  }, [binId, user, settings, addWarning, removeWarning, bins, toast, warnings]);
+  }, [binId, settingsLoading, settings.warningThresholdLevel]);
 
+  // Demo mode effect
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
-    const handleDemoNotifications = (newData: LoadCellData) => {
-        const currentBin = bins.find(b => b.id === binId);
-        if (!currentBin) return;
-
-        const levelThreshold = settings.warningThresholdLevel;
-        const isLevelCritical = newData.level > levelThreshold;
-        const isCurrentlyWarning = warnings.some(w => w.binId === binId);
-
-        if (isLevelCritical) {
-            if (!isCurrentlyWarning) {
-                addWarning({
-                    binId: currentBin.id,
-                    binName: currentBin.name,
-                    binLocation: currentBin.location,
-                    level: newData.level,
-                    timestamp: newData.timestamp,
-                });
-            }
-        } else {
-            if (isCurrentlyWarning) {
-                removeWarning(binId);
-            }
-        }
-    };
-    
     if (isDemoMode) {
+      // Initialize with a full set of data points
       const initialData: LoadCellData[] = [];
       let lastData: LoadCellData | undefined = undefined;
       for (let i = 0; i < MAX_DATA_POINTS; i++) {
@@ -209,11 +142,15 @@ export function useLoadcellData(binId: string) {
       }
       setDataHistory(initialData);
 
+      // Start interval to add new points
       intervalId = setInterval(() => {
         setDataHistory(prevHistory => {
           const newPoint = generateSampleData(prevHistory[prevHistory.length - 1]);
-          handleDemoNotifications(newPoint);
-          const newHistory = [...prevHistory, newPoint];
+          
+          const shouldBeAlarmActive = newPoint.level > settings.warningThresholdLevel;
+          setIsAlarmActive(shouldBeAlarmActive); // Update local state for demo
+
+          const newHistory = [...prevHistory, { ...newPoint, isAlarmActive: shouldBeAlarmActive }];
            return newHistory.length > MAX_DATA_POINTS 
                 ? newHistory.slice(newHistory.length - MAX_DATA_POINTS)
                 : newHistory;
@@ -223,9 +160,9 @@ export function useLoadcellData(binId: string) {
     return () => {
       if (intervalId) clearInterval(intervalId);
     }
-  }, [isDemoMode, binId, settings, addWarning, removeWarning, bins, warnings]);
+  }, [isDemoMode, settings.warningThresholdLevel]);
   
   const latestData = dataHistory.length > 0 ? dataHistory[dataHistory.length - 1] : null;
 
-  return { data: latestData, history: dataHistory, loading, error, isConnected };
+  return { data: latestData, history: dataHistory, loading, error, isConnected, isAlarmActive };
 }

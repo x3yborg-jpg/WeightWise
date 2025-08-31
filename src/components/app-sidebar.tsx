@@ -18,25 +18,28 @@ import { useAuth } from "@/context/auth-context"
 import { useEffect, useState } from "react";
 import { onValue, ref, off } from "firebase/database";
 import { database } from "@/lib/firebase";
-import { useBins } from "@/context/bin-context";
-import { useWarnings } from "@/context/warning-context";
+import { useBins, type BinConfig } from "@/context/bin-context";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { GlobalSettingsDialog } from "./global-settings-dialog";
 import { cn } from "@/lib/utils";
 
-interface BinStatus {
-    [key: string]: boolean;
+interface BinState {
+    isOnline: boolean;
+    isAlarmActive: boolean;
+    level: number;
+}
+
+interface AllBinsState {
+    [key: string]: BinState;
 }
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { logout } = useAuth();
-  const [binStatus, setBinStatus] = useState<BinStatus>({});
+  const [allBinsState, setAllBinsState] = useState<AllBinsState>({});
   const { bins } = useBins();
-  const { warnings, removeWarning } = useWarnings();
-
 
   useEffect(() => {
     if (!bins.length) return;
@@ -44,31 +47,37 @@ export function AppSidebar() {
     const listeners: (() => void)[] = [];
 
     bins.forEach(bin => {
-        const dbRef = ref(database, `${bin.id}/IsON`);
-        const listener = onValue(dbRef, (snapshot) => {
-            const isOnline = snapshot.exists() && snapshot.val() !== 0;
-            setBinStatus(prevStatus => ({...prevStatus, [bin.id]: isOnline }));
+        const binRef = ref(database, bin.id);
+        const listener = onValue(binRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                const isOnline = data.IsON && data.IsON !== 0;
+                setAllBinsState(prevState => ({
+                    ...prevState,
+                    [bin.id]: {
+                        isOnline: isOnline,
+                        isAlarmActive: data.isAlarmActive ?? false,
+                        level: data.level ?? 0,
+                    }
+                }));
+            }
         });
 
-        const timeout = setInterval(() => {
-             const dbRefCheck = ref(database, `${bin.id}/IsON`);
-             onValue(dbRefCheck, (snapshot) => {
-                if(!snapshot.exists() || snapshot.val() === 0){
-                     setBinStatus(prevStatus => ({...prevStatus, [bin.id]: false}));
-                }
-             }, { onlyOnce: true });
-        }, 35 * 60 * 1000);
-
-        listeners.push(() => {
-            clearInterval(timeout);
-            off(dbRef, 'value', listener);
-        });
+        listeners.push(() => off(binRef, 'value', listener));
     });
 
     return () => {
         listeners.forEach(cleanup => cleanup());
     }
   }, [bins]);
+  
+  const activeWarnings = bins
+    .filter(bin => allBinsState[bin.id]?.isAlarmActive)
+    .map(bin => ({
+        ...bin,
+        level: allBinsState[bin.id]?.level ?? 0,
+    }));
+
 
   return (
     <Sidebar>
@@ -84,8 +93,8 @@ export function AppSidebar() {
             <Sheet>
                 <SheetTrigger asChild>
                     <Button variant="ghost" size="icon" className="relative">
-                        <Bell className={`h-5 w-5 ${warnings.length > 0 ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`} />
-                         {warnings.length > 0 && (
+                        <Bell className={`h-5 w-5 ${activeWarnings.length > 0 ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`} />
+                         {activeWarnings.length > 0 && (
                             <span className="absolute top-0 right-0 flex h-2 w-2">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive"></span>
@@ -101,28 +110,19 @@ export function AppSidebar() {
                         </SheetTitle>
                     </SheetHeader>
                     <div className="mt-4 space-y-4">
-                        {warnings.length === 0 ? (
+                        {activeWarnings.length === 0 ? (
                             <p className="text-muted-foreground text-sm">No active warnings. All systems are normal.</p>
                         ) : (
-                            warnings.map(warning => (
-                                <div key={warning.binId} className="relative p-3 rounded-lg border border-destructive/50 bg-destructive/10">
-                                    <h3 className="font-semibold text-destructive-foreground">{warning.binName}</h3>
-                                    <p className="text-sm text-muted-foreground">{warning.binLocation}</p>
+                            activeWarnings.map(warning => (
+                                <div key={warning.id} className="relative p-3 rounded-lg border border-destructive/50 bg-destructive/10">
+                                    <h3 className="font-semibold text-destructive-foreground">{warning.name}</h3>
+                                    <p className="text-sm text-muted-foreground">{warning.location}</p>
                                     <div className="mt-2 flex items-center justify-between">
                                         <Badge variant="destructive">Level: {warning.level.toFixed(1)}%</Badge>
                                         <Button asChild variant="secondary" size="sm">
-                                            <Link href={`/bin/${warning.binId}`}>View Bin</Link>
+                                            <Link href={`/bin/${warning.id}`}>View Bin</Link>
                                         </Button>
                                     </div>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="absolute top-1 right-1 h-7 w-7 text-muted-foreground hover:bg-destructive/20 hover:text-destructive-foreground"
-                                        onClick={() => removeWarning(warning.binId)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                        <span className="sr-only">Dismiss warning</span>
-                                    </Button>
                                 </div>
                             ))
                         )}
@@ -133,9 +133,10 @@ export function AppSidebar() {
         </SidebarHeader>
         <SidebarMenu>
           {bins.map(bin => {
-            const isOnline = binStatus[bin.id] ?? false;
+            const state = allBinsState[bin.id];
+            const isOnline = state?.isOnline ?? false;
             const isActive = pathname === `/bin/${bin.id}`;
-            const hasWarning = warnings.some(w => w.binId === bin.id);
+            const hasWarning = state?.isAlarmActive ?? false;
 
             return (
                 <SidebarMenuItem key={bin.id}>

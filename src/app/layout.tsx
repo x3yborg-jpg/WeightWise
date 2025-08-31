@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 import { Inter, Space_Grotesk as SpaceGrotesk } from "next/font/google"
 import { AuthProvider } from '@/context/auth-context';
 import { BinProvider } from '@/context/bin-context';
-import { WarningProvider } from '@/context/warning-context';
 import { SettingsProvider } from '@/context/settings-context';
 import { AppWrapper } from './app-wrapper';
 
@@ -43,12 +42,10 @@ export default function RootLayout({
         <AuthProvider>
           <SettingsProvider>
             <BinProvider>
-              <WarningProvider>
-                 <AppWrapper>
-                    {children}
-                 </AppWrapper>
-                 <Toaster />
-              </WarningProvider>
+               <AppWrapper>
+                  {children}
+               </AppWrapper>
+               <Toaster />
             </BinProvider>
           </SettingsProvider>
         </AuthProvider>
