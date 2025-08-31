@@ -62,14 +62,12 @@ export function useLoadcellData(binId: string) {
   const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastDataRef = useRef<string | null>(null);
   
-  const isWarningActiveForThisBin = warnings.some(w => w.binId === binId);
-
 
   const handleNotificationsAndWarnings = (newData: LoadCellData) => {
     const currentBin = bins.find(b => b.id === binId);
     if (!currentBin) return;
     
-    // Use custom threshold from settings
+    const isWarningActiveForThisBin = warnings.some(w => w.binId === binId);
     const levelThreshold = settings.warningThresholdLevel;
     const isLevelCritical = newData.level > levelThreshold;
 
@@ -165,7 +163,7 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
     };
-  }, [binId, user, settings]); // Rerun if user/settings change
+  }, [binId, user, settings, warnings, addWarning, removeWarning]); // Rerun if user/settings change
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
