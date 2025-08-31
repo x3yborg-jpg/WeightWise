@@ -71,8 +71,8 @@ export function WeightChart({ data, isModal = false }: WeightChartProps) {
             tickMargin={8}
             tickCount={isModal ? 10 : 6}
             domain={yAxisDomain}
-            tickFormatter={(value) => `${value}`}
-            width={30}
+            tickFormatter={(value: number) => `${value.toFixed(1)}kg`}
+            width={45}
           />
           <Tooltip
             cursor={{
