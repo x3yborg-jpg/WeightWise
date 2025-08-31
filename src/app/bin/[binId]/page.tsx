@@ -18,7 +18,8 @@ interface BinPageProps {
     }
 }
 
-export default function BinPage({ params: { binId } }: BinPageProps) {
+export default function BinPage({ params }: BinPageProps) {
+  const { binId } = params;
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { bins, loading: binsLoading } = useBins();
@@ -34,12 +35,9 @@ export default function BinPage({ params: { binId } }: BinPageProps) {
 
   if (loading || !user) {
     return (
-        <div className="flex min-h-screen w-full">
-            <AppSidebar />
-            <main className="flex-1 flex items-center justify-center bg-background">
-                <ConcentricLoader />
-            </main>
-        </div>
+      <div className="flex h-screen w-screen items-center justify-center fixed inset-0 bg-background/80 backdrop-blur-sm z-50">
+        <ConcentricLoader />
+      </div>
     );
   }
   
