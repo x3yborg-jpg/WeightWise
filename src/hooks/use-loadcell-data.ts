@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { ref, onValue, off, update, get } from 'firebase/database';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { ref, onValue, off, update } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { useSettings } from '@/context/settings-context';
 
@@ -56,13 +56,20 @@ export function useLoadcellData(binId: string) {
   const [isConnected, setIsConnected] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [isAlarmActive, setIsAlarmActive] = useState(false);
-  const [lastSeen, setLastSeen] = useState<number | undefined>(undefined);
   
   const { settings, loading: settingsLoading } = useSettings();
   const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resetHeartbeatTimeout = useCallback(() => {
+    if (heartbeatTimeoutRef.current) {
+        clearTimeout(heartbeatTimeoutRef.current);
+    }
+    heartbeatTimeoutRef.current = setTimeout(() => {
+        setIsConnected(false);
+    }, HEARTBEAT_TIMEOUT);
+  }, []);
   
   useEffect(() => {
-    // Reset state when binId changes or settings are not loaded
     if (settingsLoading) {
         setLoading(true);
         return;
@@ -70,11 +77,8 @@ export function useLoadcellData(binId: string) {
     setDataHistory([]);
     setError(null);
     setLoading(true);
-    setIsConnected(false);
     setIsDemoMode(false);
     setIsAlarmActive(false);
-    setLastSeen(undefined);
-    if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
 
     const dbRef = ref(database, binId);
 
@@ -84,24 +88,31 @@ export function useLoadcellData(binId: string) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
-        // --- New Logic for Last Seen Timestamp ---
-        if (val.IsON !== undefined && val.IsON !== val.lastUpdatedNumber) {
+        if (val.IsON !== undefined && val.IsON !== 0) {
+            // A device is considered "connected" if it has a lastSeen timestamp
+            // and that timestamp is within the timeout period.
             const now = Date.now();
-            update(dbRef, { 
-                lastSeen: now,
-                lastUpdatedNumber: val.IsON 
-            });
-            setLastSeen(now);
+            const lastSeenTime = val.lastSeen ?? 0;
+            if (now - lastSeenTime < HEARTBEAT_TIMEOUT) {
+                setIsConnected(true);
+                resetHeartbeatTimeout();
+            } else {
+                setIsConnected(false);
+            }
+
+            // If we get a new heartbeat value, update the timestamp and reset the timeout
+            if (val.IsON !== val.lastUpdatedNumber) {
+                update(dbRef, { 
+                    lastSeen: now,
+                    lastUpdatedNumber: val.IsON 
+                });
+                setIsConnected(true);
+                resetHeartbeatTimeout();
+            }
         } else {
-            setLastSeen(val.lastSeen);
+            setIsConnected(false);
         }
 
-
-        if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
-        heartbeatTimeoutRef.current = setTimeout(() => setIsConnected(false), HEARTBEAT_TIMEOUT);
-
-        setIsConnected(!!val.IsON && val.IsON !== 0);
-        
         const alarmState = val.isAlarmActive ?? false;
         setIsAlarmActive(alarmState);
 
@@ -121,7 +132,6 @@ export function useLoadcellData(binId: string) {
                         : newHistory;
             });
             
-            // Centralized logic to update alarm status in Firebase
             const shouldBeAlarmActive = newDataPoint.level > settings.warningThresholdLevel;
             if (alarmState !== shouldBeAlarmActive) {
                 update(dbRef, { isAlarmActive: shouldBeAlarmActive });
@@ -147,7 +157,7 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
     };
-  }, [binId, settingsLoading, settings.warningThresholdLevel]);
+  }, [binId, settingsLoading, settings.warningThresholdLevel, resetHeartbeatTimeout]);
 
   // Demo mode effect
   useEffect(() => {
@@ -169,9 +179,8 @@ export function useLoadcellData(binId: string) {
           
           const shouldBeAlarmActive = newPoint.level > settings.warningThresholdLevel;
           setIsAlarmActive(shouldBeAlarmActive); // Update local state for demo
-          setLastSeen(Date.now());
-
-          const newHistory = [...prevHistory, { ...newPoint, isAlarmActive: shouldBeAlarmActive }];
+          
+          const newHistory = [...prevHistory, { ...newPoint, isAlarmActive: shouldBeAlarmActive, lastSeen: Date.now() }];
            return newHistory.length > MAX_DATA_POINTS 
                 ? newHistory.slice(newHistory.length - MAX_DATA_POINTS)
                 : newHistory;
@@ -183,7 +192,7 @@ export function useLoadcellData(binId: string) {
     }
   }, [isDemoMode, settings.warningThresholdLevel]);
   
-  const latestData = dataHistory.length > 0 ? { ...dataHistory[dataHistory.length-1], lastSeen: lastSeen } : null;
+  const latestData = dataHistory.length > 0 ? dataHistory[dataHistory.length-1] : null;
 
   return { data: latestData, history: dataHistory, loading, error, isConnected, isAlarmActive };
 }

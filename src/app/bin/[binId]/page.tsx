@@ -3,7 +3,7 @@
 
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
-import { useEffect, use, useState } from 'react';
+import { useEffect, use, useState, useMemo } from 'react';
 import { Dashboard } from '@/components/dashboard';
 import { Clock, Settings } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -25,7 +25,7 @@ export default function BinPage({ params }: BinPageProps) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { bins, loading: binsLoading } = useBins();
-  const currentBin = bins.find(b => b.id === binId);
+  const currentBin = useMemo(() => bins.find(b => b.id === binId), [bins, binId]);
   const { data, history, loading: dashboardLoading, error, isConnected, isAlarmActive } = useLoadcellData(binId);
   const [lastSeenText, setLastSeenText] = useState('');
 
@@ -43,6 +43,8 @@ export default function BinPage({ params }: BinPageProps) {
       updateText();
       const intervalId = setInterval(updateText, 10000); // Update every 10 seconds
       return () => clearInterval(intervalId);
+    } else {
+        setLastSeenText('');
     }
   }, [data?.lastSeen]);
 
@@ -104,7 +106,7 @@ export default function BinPage({ params }: BinPageProps) {
                   <p className="mt-4 text-lg text-muted-foreground">
                       Live Load Cell Monitoring
                   </p>
-                  {lastSeenText && (
+                  {lastSeenText && isConnected && (
                     <div className="flex items-center justify-center gap-2 mt-2 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4" />
                         <span>Last updated {lastSeenText}</span>
