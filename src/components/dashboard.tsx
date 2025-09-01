@@ -8,7 +8,7 @@ import { LevelGauge } from '@/components/level-gauge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize, Siren } from 'lucide-react';
+import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize, Siren, Clock } from 'lucide-react';
 import { WeightChart } from './weight-chart';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/context/auth-context';
@@ -17,6 +17,7 @@ import { playWarningSound } from '@/lib/audio';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { useBins } from '@/context/bin-context';
+import { formatDistanceToNow } from 'date-fns';
 
 interface DashboardProps {
     binId: string;
@@ -45,7 +46,7 @@ function DashboardSkeleton() {
          <CardContent className="flex flex-col items-center justify-center pt-10 gap-2">
             <Skeleton className="h-16 w-48" />
             <Skeleton className="h-6 w-32" />
-        </CardContent>
+        </Content>
       </Card>
       
       {/* Chart Card Skeleton */}
@@ -73,6 +74,7 @@ export function Dashboard({ binId }: DashboardProps) {
   const { toast } = useToast();
   const warningIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasTriggeredInitialWarning = useRef(false);
+  const [lastSeenText, setLastSeenText] = useState('');
 
    const triggerDashboardWarning = () => {
       const currentBin = bins.find(b => b.id === binId);
@@ -86,6 +88,17 @@ export function Dashboard({ binId }: DashboardProps) {
           duration: 10000,
       });
   };
+  
+  useEffect(() => {
+    if (data?.lastSeen) {
+      const updateText = () => {
+        setLastSeenText(formatDistanceToNow(new Date(data.lastSeen), { addSuffix: true }));
+      };
+      updateText();
+      const intervalId = setInterval(updateText, 10000); // Update every 10 seconds
+      return () => clearInterval(intervalId);
+    }
+  }, [data?.lastSeen]);
 
   useEffect(() => {
     if (isAlarmActive) {
@@ -238,24 +251,34 @@ export function Dashboard({ binId }: DashboardProps) {
         </Dialog>
 
 
-         <div className="lg:col-span-3 mt-4 flex items-center justify-center text-sm text-muted-foreground">
-            {isConnected ? (
-                !loading && (
-                    <div className="flex items-center gap-2 text-green-400">
-                        <Wifi className="h-4 w-4 animate-pulse" />
-                        <span>Device Online</span>
-                    </div>
-                )
-            ) : (
-                !loading && (
-                    <div className="flex items-center gap-2 text-yellow-500">
-                        <WifiOff className="h-4 w-4" />
-                        <span>Awaiting connection...</span>
-                    </div>
-                )
+         <div className="lg:col-span-3 mt-4 flex items-center justify-between text-sm text-muted-foreground">
+             <div className="flex items-center gap-2">
+                {isConnected ? (
+                    !loading && (
+                        <div className="flex items-center gap-2 text-green-400">
+                            <Wifi className="h-4 w-4 animate-pulse" />
+                            <span>Device Online</span>
+                        </div>
+                    )
+                ) : (
+                    !loading && (
+                        <div className="flex items-center gap-2 text-yellow-500">
+                            <WifiOff className="h-4 w-4" />
+                            <span>Awaiting connection...</span>
+                        </div>
+                    )
+                )}
+            </div>
+             {lastSeenText && (
+                <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span>Last updated {lastSeenText}</span>
+                </div>
             )}
         </div>
     </div>
     </>
   );
 }
+
+    

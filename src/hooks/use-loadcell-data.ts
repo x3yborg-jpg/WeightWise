@@ -16,6 +16,7 @@ export interface LoadCellData {
   level: number;
   timestamp: number;
   isAlarmActive?: boolean;
+  lastSeen?: number;
 }
 
 export interface RawData {
@@ -24,6 +25,7 @@ export interface RawData {
     level: number;
     IsON?: number;
     isAlarmActive?: boolean;
+    lastSeen?: number;
 }
 
 // Function to generate sample data
@@ -42,6 +44,7 @@ const generateSampleData = (lastData?: LoadCellData): LoadCellData => {
     level: lastLevel,
     timestamp: Date.now(),
     isAlarmActive: false,
+    lastSeen: Date.now(),
   };
 };
 
@@ -78,6 +81,9 @@ export function useLoadcellData(binId: string) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
+        // Always update lastSeen timestamp on any data received
+        update(dbRef, { lastSeen: Date.now() });
+
         if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
         heartbeatTimeoutRef.current = setTimeout(() => setIsConnected(false), HEARTBEAT_TIMEOUT);
 
@@ -92,6 +98,7 @@ export function useLoadcellData(binId: string) {
                 level: val.level,
                 timestamp: Date.now(),
                 isAlarmActive: alarmState,
+                lastSeen: val.lastSeen
             };
 
             setDataHistory((prevHistory) => {
@@ -166,3 +173,5 @@ export function useLoadcellData(binId: string) {
 
   return { data: latestData, history: dataHistory, loading, error, isConnected, isAlarmActive };
 }
+
+    
