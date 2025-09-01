@@ -24,6 +24,8 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { GlobalSettingsDialog } from "./global-settings-dialog";
 import { cn } from "@/lib/utils";
+import { HEARTBEAT_TIMEOUT } from "@/hooks/use-loadcell-data"
+
 
 interface BinState {
     isOnline: boolean;
@@ -51,7 +53,11 @@ export function AppSidebar() {
         const listener = onValue(binRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
-                const isOnline = data.IsON && data.IsON !== 0;
+                
+                const now = Date.now();
+                const lastSeenTime = data.lastSeen ?? 0;
+                const isOnline = now - lastSeenTime < HEARTBEAT_TIMEOUT;
+                
                 setAllBinsState(prevState => ({
                     ...prevState,
                     [bin.id]: {
@@ -66,8 +72,32 @@ export function AppSidebar() {
         listeners.push(() => off(binRef, 'value', listener));
     });
 
+    // Also set an interval to re-check the online status periodically
+    const intervalId = setInterval(() => {
+        setAllBinsState(prevState => {
+            const newState = { ...prevState };
+            const now = Date.now();
+            bins.forEach(bin => {
+                 const binRef = ref(database, bin.id);
+                 onValue(binRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        const data = snapshot.val();
+                        const lastSeenTime = data.lastSeen ?? 0;
+                        const isOnline = now - lastSeenTime < HEARTBEAT_TIMEOUT;
+                        if(newState[bin.id]) {
+                            newState[bin.id].isOnline = isOnline;
+                        }
+                    }
+                 }, { onlyOnce: true });
+            });
+            return newState;
+        });
+    }, 60000); // Check every minute
+
+
     return () => {
         listeners.forEach(cleanup => cleanup());
+        clearInterval(intervalId);
     }
   }, [bins]);
   

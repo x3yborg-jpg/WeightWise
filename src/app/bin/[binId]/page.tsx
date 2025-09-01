@@ -106,7 +106,7 @@ export default function BinPage({ params }: BinPageProps) {
                   <p className="mt-4 text-lg text-muted-foreground">
                       Live Load Cell Monitoring
                   </p>
-                  {lastSeenText && isConnected && (
+                  {lastSeenText && (
                     <div className="flex items-center justify-center gap-2 mt-2 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4" />
                         <span>Last updated {lastSeenText}</span>

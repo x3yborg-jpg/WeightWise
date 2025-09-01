@@ -9,7 +9,7 @@ import { useSettings } from '@/context/settings-context';
 export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
 export const MAX_WEIGHT_G = 40000; // 40kg in grams
-const HEARTBEAT_TIMEOUT = 1800000; // 30 minutes
+export const HEARTBEAT_TIMEOUT = 1800000; // 30 minutes
 
 export interface LoadCellData {
   weight: number;
@@ -60,15 +60,15 @@ export function useLoadcellData(binId: string) {
   const { settings, loading: settingsLoading } = useSettings();
   const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const resetHeartbeatTimeout = useCallback(() => {
-    if (heartbeatTimeoutRef.current) {
-        clearTimeout(heartbeatTimeoutRef.current);
-    }
-    heartbeatTimeoutRef.current = setTimeout(() => {
-        setIsConnected(false);
-    }, HEARTBEAT_TIMEOUT);
+  const checkConnection = useCallback((lastSeenTime: number) => {
+      const now = Date.now();
+      if (now - lastSeenTime < HEARTBEAT_TIMEOUT) {
+          setIsConnected(true);
+      } else {
+          setIsConnected(false);
+      }
   }, []);
-  
+
   useEffect(() => {
     if (settingsLoading) {
         setLoading(true);
@@ -82,35 +82,29 @@ export function useLoadcellData(binId: string) {
 
     const dbRef = ref(database, binId);
 
+    // Initial check for connection status
+    onValue(dbRef, (snapshot) => {
+        if(snapshot.exists()) {
+            const val: RawData = snapshot.val();
+            checkConnection(val.lastSeen ?? 0);
+        }
+    }, { onlyOnce: true });
+
+
     const listener = onValue(dbRef, (snapshot) => {
       setLoading(false);
       if (snapshot.exists()) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
-        if (val.IsON !== undefined && val.IsON !== 0) {
-            // A device is considered "connected" if it has a lastSeen timestamp
-            // and that timestamp is within the timeout period.
+        // Handle heartbeat and connection status
+        if (val.IsON !== undefined && val.IsON !== 0 && val.IsON !== val.lastUpdatedNumber) {
             const now = Date.now();
-            const lastSeenTime = val.lastSeen ?? 0;
-            if (now - lastSeenTime < HEARTBEAT_TIMEOUT) {
-                setIsConnected(true);
-                resetHeartbeatTimeout();
-            } else {
-                setIsConnected(false);
-            }
-
-            // If we get a new heartbeat value, update the timestamp and reset the timeout
-            if (val.IsON !== val.lastUpdatedNumber) {
-                update(dbRef, { 
-                    lastSeen: now,
-                    lastUpdatedNumber: val.IsON 
-                });
-                setIsConnected(true);
-                resetHeartbeatTimeout();
-            }
-        } else {
-            setIsConnected(false);
+            update(dbRef, { 
+                lastSeen: now,
+                lastUpdatedNumber: val.IsON 
+            });
+            checkConnection(now);
         }
 
         const alarmState = val.isAlarmActive ?? false;
@@ -152,12 +146,22 @@ export function useLoadcellData(binId: string) {
       );
       setLoading(false);
     });
+    
+    // Periodically check the connection status
+    const intervalId = setInterval(() => {
+         onValue(dbRef, (snapshot) => {
+            if(snapshot.exists()) {
+                const val: RawData = snapshot.val();
+                checkConnection(val.lastSeen ?? 0);
+            }
+         }, { onlyOnce: true });
+    }, 60000); // Check every minute
 
     return () => {
       off(dbRef, 'value', listener);
-      if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
+      clearInterval(intervalId);
     };
-  }, [binId, settingsLoading, settings.warningThresholdLevel, resetHeartbeatTimeout]);
+  }, [binId, settingsLoading, settings.warningThresholdLevel, checkConnection]);
 
   // Demo mode effect
   useEffect(() => {
