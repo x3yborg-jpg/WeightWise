@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import ConcentricLoader from '@/components/ui/concentric-loader';
+import { MobileHeader } from '@/components/mobile-header';
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -30,6 +31,7 @@ export default function Home() {
     <div className="flex">
       <AppSidebar />
       <main className="flex-1 flex min-h-screen flex-col items-center justify-center p-4 md:p-8">
+            <MobileHeader />
           <div 
             className="relative w-full h-full flex flex-col items-center justify-center"
           >

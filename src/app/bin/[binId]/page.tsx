@@ -13,6 +13,7 @@ import { useBins } from '@/context/bin-context';
 import ConcentricLoader from '@/components/ui/concentric-loader';
 import { useLoadcellData } from '@/hooks/use-loadcell-data';
 import { formatDistanceToNow } from 'date-fns';
+import { MobileHeader } from '@/components/mobile-header';
 
 interface BinPageProps {
     params: Promise<{
@@ -63,7 +64,8 @@ export default function BinPage({ params }: BinPageProps) {
     return (
       <div className="flex">
         <AppSidebar />
-        <main className="flex-1 flex items-center justify-center p-4 md:p-8">
+        <main className="flex-1 flex flex-col items-center justify-center p-4 md:p-8">
+            <MobileHeader />
             <div className="text-center">
                 <h1 className="text-2xl font-semibold text-destructive">Bin not found</h1>
                 <p className="text-muted-foreground">The bin with ID '{binId}' does not exist.</p>
@@ -77,7 +79,8 @@ export default function BinPage({ params }: BinPageProps) {
   return (
     <div className="flex">
         <AppSidebar />
-        <main className="relative flex min-h-screen flex-1 flex-col items-center justify-center p-4 md:p-8">
+        <main className="relative flex min-h-screen flex-1 flex-col items-center p-4 pt-16 md:p-8 md:pt-8">
+            <MobileHeader />
             <div 
                 className="absolute inset-0 -z-10 h-full w-full bg-background 
                         bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] 
