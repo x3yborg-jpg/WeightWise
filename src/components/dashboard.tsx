@@ -46,7 +46,7 @@ function DashboardSkeleton() {
          <CardContent className="flex flex-col items-center justify-center pt-10 gap-2">
             <Skeleton className="h-16 w-48" />
             <Skeleton className="h-6 w-32" />
-        </Content>
+        </CardContent>
       </Card>
       
       {/* Chart Card Skeleton */}
