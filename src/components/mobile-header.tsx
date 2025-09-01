@@ -1,7 +1,7 @@
 
 "use client";
 
-import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
+import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
 import { AlertCircle, Bell } from "lucide-react";
@@ -12,6 +12,7 @@ import { database } from "@/lib/firebase";
 import { HEARTBEAT_TIMEOUT } from "@/hooks/use-loadcell-data";
 import { Badge } from "./ui/badge";
 import Link from "next/link";
+import Image from "next/image";
 
 
 interface BinState {
@@ -26,7 +27,7 @@ interface AllBinsState {
 
 
 export function MobileHeader() {
-  const { isMobile } = useSidebar();
+  const { isMobile, toggleSidebar } = useSidebar();
   const [allBinsState, setAllBinsState] = useState<AllBinsState>({});
   const { bins } = useBins();
 
@@ -99,7 +100,10 @@ export function MobileHeader() {
 
   return (
     <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between gap-2 border-b bg-background/95 px-4 backdrop-blur-sm">
-      <SidebarTrigger />
+      <div onClick={toggleSidebar} className="flex items-center gap-2 cursor-pointer group">
+         <Image src="/trash-basket.png" alt="WeightWise Logo" width={24} height={24} className="transition-transform group-hover:rotate-12" />
+         <span className="font-semibold font-heading">WeightWise</span>
+      </div>
       <div className="flex items-center gap-2">
          <Sheet>
             <SheetTrigger asChild>
