@@ -133,18 +133,18 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
             />
           </div>
         </div>
-        <DialogFooter className="sm:justify-between">
-           <Button variant="destructive" onClick={() => setIsAlertOpen(true)}>
-             <Trash2 className="mr-2 h-4 w-4" />
-             Delete Bin
-           </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" onClick={handleSave} disabled={loading}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Save changes
+        <DialogFooter className="sm:justify-between flex-col-reverse sm:flex-row gap-2">
+            <Button variant="destructive" onClick={() => setIsAlertOpen(true)} className="sm:mr-auto mt-2 sm:mt-0">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Bin
             </Button>
-          </div>
+            <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" onClick={handleSave} disabled={loading}>
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save changes
+                </Button>
+            </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
