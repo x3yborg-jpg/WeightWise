@@ -100,7 +100,7 @@ export function MobileHeader() {
   if (!isMobile) return null;
 
   return (
-    <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between gap-2 border-b bg-background/95 px-4 backdrop-blur-sm">
+    <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between gap-2 border-b bg-background/80 px-4 backdrop-blur-sm">
       <div onClick={toggleSidebar} className="flex items-center gap-2 cursor-pointer group">
          <Image src="/trash-basket.png" alt="WeightWise Logo" width={24} height={24} className="transition-transform group-hover:rotate-12" />
          <span className="font-semibold font-heading">WeightWise</span>
