@@ -3,14 +3,16 @@
 
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
-import { useEffect, use } from 'react';
+import { useEffect, use, useState } from 'react';
 import { Dashboard } from '@/components/dashboard';
-import { Settings } from 'lucide-react';
+import { Clock, Settings } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { SettingsDialog } from '@/components/settings-dialog';
 import { useBins } from '@/context/bin-context';
 import ConcentricLoader from '@/components/ui/concentric-loader';
+import { useLoadcellData } from '@/hooks/use-loadcell-data';
+import { formatDistanceToNow } from 'date-fns';
 
 interface BinPageProps {
     params: Promise<{
@@ -24,6 +26,8 @@ export default function BinPage({ params }: BinPageProps) {
   const router = useRouter();
   const { bins, loading: binsLoading } = useBins();
   const currentBin = bins.find(b => b.id === binId);
+  const { data, history, loading: dashboardLoading, error, isConnected, isAlarmActive } = useLoadcellData(binId);
+  const [lastSeenText, setLastSeenText] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -31,7 +35,19 @@ export default function BinPage({ params }: BinPageProps) {
     }
   }, [user, authLoading, router]);
 
-  const loading = authLoading || binsLoading;
+  useEffect(() => {
+    if (data?.lastSeen) {
+      const updateText = () => {
+        setLastSeenText(formatDistanceToNow(new Date(data.lastSeen), { addSuffix: true }));
+      };
+      updateText();
+      const intervalId = setInterval(updateText, 10000); // Update every 10 seconds
+      return () => clearInterval(intervalId);
+    }
+  }, [data?.lastSeen]);
+
+
+  const loading = authLoading || binsLoading || dashboardLoading;
 
   if (loading || !user) {
     return (
@@ -88,8 +104,21 @@ export default function BinPage({ params }: BinPageProps) {
                   <p className="mt-4 text-lg text-muted-foreground">
                       Live Load Cell Monitoring
                   </p>
+                  {lastSeenText && (
+                    <div className="flex items-center justify-center gap-2 mt-2 text-sm text-muted-foreground">
+                        <Clock className="h-4 w-4" />
+                        <span>Last updated {lastSeenText}</span>
+                    </div>
+                  )}
                 </div>
-                <Dashboard binId={binId} />
+                <Dashboard 
+                    binId={binId} 
+                    data={data}
+                    history={history}
+                    isConnected={isConnected}
+                    isAlarmActive={isAlarmActive}
+                    error={error}
+                />
             </div>
         </main>
     </div>

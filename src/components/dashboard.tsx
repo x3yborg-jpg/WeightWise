@@ -2,13 +2,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { useLoadcellData } from '@/hooks/use-loadcell-data';
+import { type LoadCellData, useLoadcellData } from '@/hooks/use-loadcell-data';
 import { WeightDisplay } from '@/components/weight-display';
 import { LevelGauge } from '@/components/level-gauge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize, Siren, Clock } from 'lucide-react';
+import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize, Siren } from 'lucide-react';
 import { WeightChart } from './weight-chart';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/context/auth-context';
@@ -17,10 +17,14 @@ import { playWarningSound } from '@/lib/audio';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { useBins } from '@/context/bin-context';
-import { formatDistanceToNow } from 'date-fns';
 
 interface DashboardProps {
     binId: string;
+    data: LoadCellData | null;
+    history: LoadCellData[];
+    isConnected: boolean;
+    isAlarmActive: boolean;
+    error: string | null;
 }
 
 function DashboardSkeleton() {
@@ -65,16 +69,13 @@ function DashboardSkeleton() {
   );
 }
 
-export function Dashboard({ binId }: DashboardProps) {
-  const { user } = useAuth();
-  const { data, history, loading, error, isConnected, isAlarmActive } = useLoadcellData(binId);
+export function Dashboard({ binId, data, history, isConnected, isAlarmActive, error }: DashboardProps) {
   const [openModal, setOpenModal] = useState<'level' | 'weight' | 'chart' | null>(null);
   const { settings } = useSettings();
   const { bins } = useBins();
   const { toast } = useToast();
   const warningIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasTriggeredInitialWarning = useRef(false);
-  const [lastSeenText, setLastSeenText] = useState('');
 
    const triggerDashboardWarning = () => {
       const currentBin = bins.find(b => b.id === binId);
@@ -89,16 +90,6 @@ export function Dashboard({ binId }: DashboardProps) {
       });
   };
   
-  useEffect(() => {
-    if (data?.lastSeen) {
-      const updateText = () => {
-        setLastSeenText(formatDistanceToNow(new Date(data.lastSeen), { addSuffix: true }));
-      };
-      updateText();
-      const intervalId = setInterval(updateText, 10000); // Update every 10 seconds
-      return () => clearInterval(intervalId);
-    }
-  }, [data?.lastSeen]);
 
   useEffect(() => {
     if (isAlarmActive) {
@@ -126,11 +117,6 @@ export function Dashboard({ binId }: DashboardProps) {
     };
   }, [isAlarmActive, binId, settings.notificationInterval, bins, toast]);
 
-
-  if (loading) {
-    return <DashboardSkeleton />;
-  }
-
   const ConnectionStatusAlert = () => (
      <Alert className="lg:col-span-3 bg-yellow-500/10 border-yellow-500/50 text-yellow-400">
         <WifiOff className="h-4 w-4" />
@@ -148,7 +134,7 @@ export function Dashboard({ binId }: DashboardProps) {
   );
 
 
-  if (error && !loading) {
+  if (error) {
     return (
       <Alert variant="destructive" className="bg-destructive/10">
         <AlertTriangle className="h-4 w-4" />
@@ -254,27 +240,17 @@ export function Dashboard({ binId }: DashboardProps) {
          <div className="lg:col-span-3 mt-4 flex items-center justify-between text-sm text-muted-foreground">
              <div className="flex items-center gap-2">
                 {isConnected ? (
-                    !loading && (
-                        <div className="flex items-center gap-2 text-green-400">
-                            <Wifi className="h-4 w-4 animate-pulse" />
-                            <span>Device Online</span>
-                        </div>
-                    )
+                    <div className="flex items-center gap-2 text-green-400">
+                        <Wifi className="h-4 w-4 animate-pulse" />
+                        <span>Device Online</span>
+                    </div>
                 ) : (
-                    !loading && (
-                        <div className="flex items-center gap-2 text-yellow-500">
-                            <WifiOff className="h-4 w-4" />
-                            <span>Awaiting connection...</span>
-                        </div>
-                    )
+                    <div className="flex items-center gap-2 text-yellow-500">
+                        <WifiOff className="h-4 w-4" />
+                        <span>Awaiting connection...</span>
+                    </div>
                 )}
             </div>
-             {lastSeenText && (
-                <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>Last updated {lastSeenText}</span>
-                </div>
-            )}
         </div>
     </div>
     </>
