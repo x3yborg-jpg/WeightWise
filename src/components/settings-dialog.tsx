@@ -133,7 +133,7 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
             />
           </div>
         </div>
-        <DialogFooter className="justify-between">
+        <DialogFooter className="justify-between sm:justify-between">
            <Button variant="destructive" onClick={() => setIsAlertOpen(true)}>
              <Trash2 className="mr-2 h-4 w-4" />
              Delete Bin
