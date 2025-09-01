@@ -29,9 +29,9 @@ interface DashboardProps {
 
 function DashboardSkeleton() {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
       {/* Level Card Skeleton */}
-      <Card className="lg:col-span-1 bg-card/50 backdrop-blur-sm border-dashed">
+      <Card className="md:col-span-1 bg-card/50 backdrop-blur-sm border-dashed">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Container Level</CardTitle>
             <Waves className="h-4 w-4 text-muted-foreground" />
@@ -42,7 +42,7 @@ function DashboardSkeleton() {
       </Card>
 
       {/* Weight Card Skeleton */}
-      <Card className="lg:col-span-2 bg-card/50 backdrop-blur-sm border-dashed">
+      <Card className="md:col-span-2 bg-card/50 backdrop-blur-sm border-dashed">
          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Current Weight</CardTitle>
             <Power className="h-4 w-4 text-muted-foreground" />
@@ -54,7 +54,7 @@ function DashboardSkeleton() {
       </Card>
       
       {/* Chart Card Skeleton */}
-      <Card className="lg:col-span-3 bg-card/50 backdrop-blur-sm border-dashed">
+      <Card className="md:col-span-3 bg-card/50 backdrop-blur-sm border-dashed">
         <CardHeader className="flex flex-row items-start p-6">
             <div className="flex-1">
                 <Skeleton className="h-6 w-48" />
@@ -118,7 +118,7 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
   }, [isAlarmActive, binId, settings.notificationInterval, bins, toast]);
 
   const ConnectionStatusAlert = () => (
-     <Alert className="lg:col-span-3 bg-yellow-500/10 border-yellow-500/50 text-yellow-400">
+     <Alert className="md:col-span-3 bg-yellow-500/10 border-yellow-500/50 text-yellow-400">
         <WifiOff className="h-4 w-4" />
         <AlertTitle>Device Offline</AlertTitle>
         <AlertDescription>The device is not sending data. Showing last known values.</AlertDescription>
@@ -126,7 +126,7 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
   );
   
   const HighLevelWarningAlert = () => (
-     <Alert variant="destructive" className="lg:col-span-3 animate-pulse">
+     <Alert variant="destructive" className="md:col-span-3 animate-pulse">
         <Siren className="h-4 w-4" />
         <AlertTitle>URGENT: High Bin Level!</AlertTitle>
         <AlertDescription>The container level is critical. Please arrange for emptying as soon as possible.</AlertDescription>
@@ -148,14 +148,14 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
 
   return (
     <>
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         {isAlarmActive && <HighLevelWarningAlert />}
         {!isConnected && <ConnectionStatusAlert />}
 
         {/* Level Gauge Card & Modal */}
         <Dialog open={openModal === 'level'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
             <DialogTrigger asChild onClick={() => setOpenModal('level')}>
-                <Card className={cn(cardBaseClasses, "lg:col-span-1", isAlarmActive && "border-destructive hover:border-destructive/80")}>
+                <Card className={cn(cardBaseClasses, "md:col-span-1", isAlarmActive && "border-destructive hover:border-destructive/80")}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Container Level</CardTitle>
                         <Waves className="h-4 w-4 text-muted-foreground" />
@@ -185,7 +185,7 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
         {/* Weight Display Card & Modal */}
          <Dialog open={openModal === 'weight'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
             <DialogTrigger asChild onClick={() => setOpenModal('weight')}>
-                <Card className={cn(cardBaseClasses, "lg:col-span-2")}>
+                <Card className={cn(cardBaseClasses, "md:col-span-2")}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Current Weight</CardTitle>
                         <Power className="h-4 w-4 text-muted-foreground" />
@@ -214,7 +214,7 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
          {/* Weight Chart Card & Modal */}
         <Dialog open={openModal === 'chart'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
              <DialogTrigger asChild onClick={() => setOpenModal('chart')}>
-                <Card className={cn(cardBaseClasses, "lg:col-span-3")}>
+                <Card className={cn(cardBaseClasses, "md:col-span-3")}>
                     <div className="relative">
                         <WeightChart data={history} />
                         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -237,7 +237,7 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
         </Dialog>
 
 
-         <div className="lg:col-span-3 mt-4 flex items-center justify-between text-sm text-muted-foreground">
+         <div className="md:col-span-3 mt-4 flex items-center justify-between text-sm text-muted-foreground">
              <div className="flex items-center gap-2">
                 {isConnected ? (
                     <div className="flex items-center gap-2 text-green-400">
@@ -256,5 +256,7 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
     </>
   );
 }
+
+    
 
     

@@ -59,8 +59,8 @@ export function WeightDisplay({ weight, size = 'normal' }: WeightDisplayProps) {
   const displayValue = animatedWeight / 1000;
   const decimalPlaces = 1;
   
-  const textSizeClass = size === 'large' ? 'text-8xl' : 'text-6xl';
-  const unitSizeClass = size === 'large' ? 'text-3xl' : 'text-xl';
+  const textSizeClass = size === 'large' ? 'text-7xl md:text-8xl' : 'text-5xl md:text-6xl';
+  const unitSizeClass = size === 'large' ? 'text-2xl md:text-3xl' : 'text-lg md:text-xl';
 
   return (
     <div className="text-center">
@@ -73,3 +73,5 @@ export function WeightDisplay({ weight, size = 'normal' }: WeightDisplayProps) {
     </div>
   );
 }
+
+    

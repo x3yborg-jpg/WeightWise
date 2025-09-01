@@ -97,13 +97,13 @@ export default function BinPage({ params }: BinPageProps) {
                     </div>
                  )}
 
-                <div className="text-center mb-12">
+                <div className="text-center mb-8 md:mb-12">
                   <div className="flex items-center justify-center gap-4">
-                    <h1 className="text-4xl font-bold tracking-tighter text-foreground sm:text-5xl md:text-6xl font-heading capitalize">
+                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tighter text-foreground font-heading capitalize">
                         {currentBin?.name ?? binId.replace('-', ' ')}
                     </h1>
                   </div>
-                  <p className="mt-4 text-lg text-muted-foreground">
+                  <p className="mt-4 text-base md:text-lg text-muted-foreground">
                       Live Load Cell Monitoring
                   </p>
                   {lastSeenText && (
@@ -126,3 +126,5 @@ export default function BinPage({ params }: BinPageProps) {
     </div>
   );
 }
+
+    
