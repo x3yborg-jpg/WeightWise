@@ -4,7 +4,7 @@
 import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
-import { AlertCircle, Bell } from "lucide-react";
+import { AlertCircle, Bell, Settings } from "lucide-react";
 import { useBins } from "@/context/bin-context";
 import { useEffect, useState } from "react";
 import { ref, onValue, off } from "firebase/database";
@@ -13,6 +13,7 @@ import { HEARTBEAT_TIMEOUT } from "@/hooks/use-loadcell-data";
 import { Badge } from "./ui/badge";
 import Link from "next/link";
 import Image from "next/image";
+import { GlobalSettingsDialog } from "./global-settings-dialog";
 
 
 interface BinState {
@@ -144,7 +145,13 @@ export function MobileHeader() {
                 </div>
             </SheetContent>
         </Sheet>
+        <GlobalSettingsDialog>
+            <Button variant="ghost" size="icon">
+                <Settings className="h-5 w-5 text-muted-foreground transition-transform hover:rotate-45" />
+            </Button>
+        </GlobalSettingsDialog>
       </div>
     </div>
   );
 }
+
