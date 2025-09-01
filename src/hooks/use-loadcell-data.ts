@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { ref, onValue, off, update } from 'firebase/database';
+import { ref, onValue, off, update, get } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { useSettings } from '@/context/settings-context';
 
@@ -26,6 +26,7 @@ export interface RawData {
     IsON?: number;
     isAlarmActive?: boolean;
     lastSeen?: number;
+    lastUpdatedNumber?: number;
 }
 
 // Function to generate sample data
@@ -55,6 +56,7 @@ export function useLoadcellData(binId: string) {
   const [isConnected, setIsConnected] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [isAlarmActive, setIsAlarmActive] = useState(false);
+  const [lastSeen, setLastSeen] = useState<number | undefined>(undefined);
   
   const { settings, loading: settingsLoading } = useSettings();
   const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -71,6 +73,7 @@ export function useLoadcellData(binId: string) {
     setIsConnected(false);
     setIsDemoMode(false);
     setIsAlarmActive(false);
+    setLastSeen(undefined);
     if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
 
     const dbRef = ref(database, binId);
@@ -81,8 +84,18 @@ export function useLoadcellData(binId: string) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
-        // Always update lastSeen timestamp on any data received
-        update(dbRef, { lastSeen: Date.now() });
+        // --- New Logic for Last Seen Timestamp ---
+        if (val.IsON !== undefined && val.IsON !== val.lastUpdatedNumber) {
+            const now = Date.now();
+            update(dbRef, { 
+                lastSeen: now,
+                lastUpdatedNumber: val.IsON 
+            });
+            setLastSeen(now);
+        } else {
+            setLastSeen(val.lastSeen);
+        }
+
 
         if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
         heartbeatTimeoutRef.current = setTimeout(() => setIsConnected(false), HEARTBEAT_TIMEOUT);
@@ -156,6 +169,7 @@ export function useLoadcellData(binId: string) {
           
           const shouldBeAlarmActive = newPoint.level > settings.warningThresholdLevel;
           setIsAlarmActive(shouldBeAlarmActive); // Update local state for demo
+          setLastSeen(Date.now());
 
           const newHistory = [...prevHistory, { ...newPoint, isAlarmActive: shouldBeAlarmActive }];
            return newHistory.length > MAX_DATA_POINTS 
@@ -169,9 +183,7 @@ export function useLoadcellData(binId: string) {
     }
   }, [isDemoMode, settings.warningThresholdLevel]);
   
-  const latestData = dataHistory.length > 0 ? dataHistory[dataHistory.length - 1] : null;
+  const latestData = dataHistory.length > 0 ? { ...dataHistory[dataHistory.length-1], lastSeen: lastSeen } : null;
 
   return { data: latestData, history: dataHistory, loading, error, isConnected, isAlarmActive };
 }
-
-    
