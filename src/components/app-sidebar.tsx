@@ -132,7 +132,7 @@ export function AppSidebar() {
                          )}
                     </Button>
                 </SheetTrigger>
-                <SheetContent>
+                <SheetContent className="bg-card/90 backdrop-blur-sm">
                     <SheetHeader>
                         <SheetTitle className="flex items-center gap-2">
                             <AlertCircle className="h-6 w-6 text-destructive" />
