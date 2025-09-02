@@ -14,6 +14,7 @@ import { Badge } from "./ui/badge";
 import Link from "next/link";
 import Image from "next/image";
 import { GlobalSettingsDialog } from "./global-settings-dialog";
+import { cn } from "@/lib/utils";
 
 
 interface BinState {
@@ -102,7 +103,15 @@ export function MobileHeader() {
   return (
     <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between gap-2 border-b bg-background/80 px-4 backdrop-blur-sm">
       <div onClick={toggleSidebar} className="flex items-center gap-2 cursor-pointer group">
-         <Image src="/trash-basket.png" alt="WeightWise Logo" width={24} height={24} className="transition-transform group-hover:rotate-12" />
+         <Image 
+            src="/trash-basket.png" 
+            alt="WeightWise Logo" 
+            width={24} 
+            height={24} 
+            className={cn("transition-transform group-hover:rotate-12", {
+                "animate-swing": activeWarnings.length > 0
+            })}
+         />
          <span className="font-semibold font-heading">WeightWise</span>
       </div>
       <div className="flex items-center gap-2">
@@ -154,4 +163,3 @@ export function MobileHeader() {
     </div>
   );
 }
-

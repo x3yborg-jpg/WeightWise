@@ -8,7 +8,8 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter
+  SidebarFooter,
+  useSidebar
 } from "@/components/ui/sidebar"
 import { Archive, LogOut, MapPin, Wifi, WifiOff, Bell, AlertCircle, Trash2 } from "lucide-react"
 import { usePathname } from "next/navigation"
@@ -40,6 +41,7 @@ interface AllBinsState {
 export function AppSidebar() {
   const pathname = usePathname();
   const { logout } = useAuth();
+  const { isMobile, setOpenMobile } = useSidebar();
   const [allBinsState, setAllBinsState] = useState<AllBinsState>({});
   const { bins } = useBins();
 
@@ -108,6 +110,12 @@ export function AppSidebar() {
         level: allBinsState[bin.id]?.level ?? 0,
     }));
 
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  }
+
 
   return (
     <Sidebar>
@@ -150,7 +158,7 @@ export function AppSidebar() {
                                     <div className="mt-2 flex items-center justify-between">
                                         <Badge variant="destructive">Level: {warning.level.toFixed(1)}%</Badge>
                                         <Button asChild variant="secondary" size="sm">
-                                            <Link href={`/bin/${warning.id}`}>View Bin</Link>
+                                            <Link href={`/bin/${warning.id}`} onClick={handleLinkClick}>View Bin</Link>
                                         </Button>
                                     </div>
                                 </div>
@@ -169,7 +177,7 @@ export function AppSidebar() {
             const hasWarning = state?.isAlarmActive ?? false;
 
             return (
-                <SidebarMenuItem key={bin.id}>
+                <SidebarMenuItem key={bin.id} onClick={handleLinkClick}>
                     <Link href={`/bin/${bin.id}`} passHref>
                         <SidebarMenuButton
                         isActive={isActive}
