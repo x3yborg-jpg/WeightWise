@@ -14,7 +14,6 @@ import Link from 'next/link';
 
 export default function LoginPage() {
   const [mobileNumber, setMobileNumber] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { login, user } = useAuth();
@@ -31,12 +30,13 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      await login(mobileNumber, password);
+      // The password is now hardcoded in the auth context
+      await login(mobileNumber);
       router.push('/');
     } catch (err: any) {
       let errorMessage = 'An unexpected error occurred.';
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        errorMessage = 'Invalid mobile number or password. Please try again.';
+        errorMessage = 'Invalid PIN. Please try again.';
       }
       setError(errorMessage);
     } finally {
@@ -61,7 +61,7 @@ export default function LoginPage() {
         <CardHeader>
           <CardTitle className="text-2xl font-heading text-center text-foreground">Welcome Back</CardTitle>
           <CardDescription className="text-center text-muted-foreground">
-            Sign in to access your WeightWise dashboard.
+            Enter your mobile number to access WeightWise.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -74,28 +74,14 @@ export default function LoginPage() {
             )}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="mobile">Mobile Number</Label>
+              <Label htmlFor="mobile">Mobile Number (10-Digit PIN)</Label>
               <Input
                 id="mobile"
                 type="tel"
-                placeholder="+91 ••••• •••••"
+                maxLength={10}
+                placeholder="Enter your 10-digit PIN"
                 value={mobileNumber}
-                onChange={(e) => setMobileNumber(e.target.value)}
-                required
-                disabled={loading}
-                className="bg-input/50"
-              />
-            </div>
-            <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                </div>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ''))}
                 required
                 disabled={loading}
                 className="bg-input/50"

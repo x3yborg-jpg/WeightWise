@@ -39,7 +39,6 @@ interface SettingsDialogProps {
 export function SettingsDialog({ bin, children }: SettingsDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
-  const [password, setPassword] = useState('');
   const [name, setName] = useState(bin.name);
   const [location, setLocation] = useState(bin.location);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -58,7 +57,8 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
   const handleDelete = async () => {
     setDeleteError(null);
     try {
-      await reauthenticate(password);
+      // Re-authentication no longer requires a password input from the user
+      await reauthenticate(); 
       await deleteBin(bin.id);
       setIsAlertOpen(false);
       setIsDialogOpen(false);
@@ -66,7 +66,7 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
       toast({ title: "Bin Deleted", description: `The bin has been permanently deleted.` });
     } catch (error: any) {
       console.error("Delete error:", error);
-      setDeleteError(error.code === 'auth/wrong-password' ? 'Incorrect password. Please try again.' : 'An error occurred during deletion.');
+      setDeleteError('An error occurred during deletion. Please try again.');
     }
   }
 
@@ -82,7 +82,6 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
   const handleAlertStateChange = (open: boolean) => {
     if(!open) {
         setDeleteError(null);
-        setPassword('');
     }
     setIsAlertOpen(open);
   }
@@ -155,23 +154,13 @@ export function SettingsDialog({ bin, children }: SettingsDialogProps) {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
                 This action cannot be undone. This will permanently delete the bin
-                and all of its associated data from our servers.
+                and all of its associated data from our servers. Please confirm to proceed.
             </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="space-y-2">
-                <Label htmlFor="password">Please enter your password to confirm:</Label>
-                <Input 
-                    id="password" 
-                    type="password" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••" 
-                />
-                {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
-            </div>
+            {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
             <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => setIsAlertOpen(false)}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} disabled={loading || !password}>
+                <AlertDialogAction onClick={handleDelete} disabled={loading}>
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Confirm Deletion
                 </AlertDialogAction>
