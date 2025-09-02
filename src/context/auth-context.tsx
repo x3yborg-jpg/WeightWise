@@ -19,7 +19,7 @@ import { useRouter } from 'next/navigation';
 // For example: `1234567890@weightwise.app`
 // The password for ALL users will be the `SECRET_PASSWORD` defined below.
 const AUTH_DOMAIN = "weightwise.app";
-const SECRET_PASSWORD = "default-password-for-all-users"; // This is a shared secret, not a user-specific password.
+const SECRET_PASSWORD = "WeightWise"; // This is a shared secret, not a user-specific password.
 
 
 interface AuthContextType {
