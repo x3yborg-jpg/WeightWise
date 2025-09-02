@@ -17,18 +17,34 @@ import {
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
+// --- IMPORTANT ---
+// To add a new user, you must add them through the Firebase Console Authentication page.
+// The email should be in the format: `+<countrycode><phonenumber>@weightwise.app`
+// For example: `+11234567890@weightwise.app`
+const AUTH_DOMAIN = "weightwise.app";
+
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  login: (mobileNumber: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   reauthenticate: (password: string) => Promise<void>;
-  sendPasswordReset: (email: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// A helper function to format the phone number into an email.
+// It removes all non-digit characters except for the leading '+'
+const formatPhoneNumberToEmail = (phoneNumber: string) => {
+    const cleanedNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    if (!cleanedNumber.startsWith('+')) {
+        // This is a basic fallback. Consider more robust validation.
+        throw new Error("Invalid phone number format. It must include the country code starting with '+'.");
+    }
+    return `${cleanedNumber}@${AUTH_DOMAIN}`;
+};
+
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -44,14 +60,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (mobileNumber: string, password: string) => {
+    const email = formatPhoneNumberToEmail(mobileNumber);
     await signInWithEmailAndPassword(auth, email, password);
   };
   
-  const signUp = async (email: string, password: string) => {
-    await createUserWithEmailAndPassword(auth, email, password);
-  };
-
   const logout = async () => {
     await signOut(auth);
     router.push('/login');
@@ -62,25 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const credential = EmailAuthProvider.credential(user.email, password);
     await reauthenticateWithCredential(user, credential);
   };
-  
-  const sendPasswordReset = async (email: string) => {
-      await sendPasswordResetEmail(auth, email);
-  }
-  
-  const signInWithGoogle = async () => {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-  }
 
   const value = {
     user,
     loading,
     login,
-    signUp,
     logout,
     reauthenticate,
-    sendPasswordReset,
-    signInWithGoogle
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
