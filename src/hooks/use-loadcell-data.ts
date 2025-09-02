@@ -58,7 +58,6 @@ export function useLoadcellData(binId: string) {
   const [isAlarmActive, setIsAlarmActive] = useState(false);
   
   const { settings, loading: settingsLoading } = useSettings();
-  const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const checkConnection = useCallback((lastSeenTime: number) => {
       const now = Date.now();
@@ -97,16 +96,6 @@ export function useLoadcellData(binId: string) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
-        // Handle heartbeat and connection status
-        if (val.IsON !== undefined && val.IsON !== 0 && val.IsON !== val.lastUpdatedNumber) {
-            const now = Date.now();
-            update(dbRef, { 
-                lastSeen: now,
-                lastUpdatedNumber: val.IsON 
-            });
-            checkConnection(now);
-        }
-
         const currentDbAlarmState = val.isAlarmActive ?? false;
         setIsAlarmActive(currentDbAlarmState);
 
@@ -125,13 +114,32 @@ export function useLoadcellData(binId: string) {
                         ? newHistory.slice(newHistory.length - MAX_DATA_POINTS) 
                         : newHistory;
             });
-            
-            // The critical fix: Compare the database state with what the state *should* be.
-            const shouldBeAlarmActive = newDataPoint.level > settings.warningThresholdLevel;
-            if (currentDbAlarmState !== shouldBeAlarmActive) {
-                update(dbRef, { isAlarmActive: shouldBeAlarmActive });
-            }
         }
+        
+        // Handle heartbeat and connection status
+        // CRITICAL FIX: The alarm logic is now nested inside the heartbeat check.
+        // This ensures we only update the alarm status when we receive a real new data point from the device,
+        // preventing the recursive update loop.
+        if (val.IsON !== undefined && val.IsON !== 0 && val.IsON !== val.lastUpdatedNumber) {
+            const now = Date.now();
+            
+            const shouldBeAlarmActive = val.level > settings.warningThresholdLevel;
+            const currentAlarmState = val.isAlarmActive ?? false;
+
+            const updates: Partial<RawData> = { 
+                lastSeen: now,
+                lastUpdatedNumber: val.IsON 
+            };
+            
+            // Only include `isAlarmActive` in the update if it needs to change.
+            if (shouldBeAlarmActive !== currentAlarmState) {
+                updates.isAlarmActive = shouldBeAlarmActive;
+            }
+
+            update(dbRef, updates);
+            checkConnection(now);
+        }
+
       } else {
          setError(`No data found for this bin. Displaying demo data.`);
          setIsConnected(true); // Demo is always "connected"
