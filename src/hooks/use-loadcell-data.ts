@@ -107,15 +107,15 @@ export function useLoadcellData(binId: string) {
             checkConnection(now);
         }
 
-        const currentAlarmState = val.isAlarmActive ?? false;
-        setIsAlarmActive(currentAlarmState);
+        const currentDbAlarmState = val.isAlarmActive ?? false;
+        setIsAlarmActive(currentDbAlarmState);
 
         if (typeof val.weight === 'number' && typeof val.level === 'number') {
             const newDataPoint: LoadCellData = {
                 weight: val.weight,
                 level: val.level,
                 timestamp: Date.now(),
-                isAlarmActive: currentAlarmState,
+                isAlarmActive: currentDbAlarmState,
                 lastSeen: val.lastSeen
             };
 
@@ -126,8 +126,9 @@ export function useLoadcellData(binId: string) {
                         : newHistory;
             });
             
+            // The critical fix: Compare the database state with what the state *should* be.
             const shouldBeAlarmActive = newDataPoint.level > settings.warningThresholdLevel;
-            if (currentAlarmState !== shouldBeAlarmActive) {
+            if (currentDbAlarmState !== shouldBeAlarmActive) {
                 update(dbRef, { isAlarmActive: shouldBeAlarmActive });
             }
         }
