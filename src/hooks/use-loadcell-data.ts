@@ -107,15 +107,15 @@ export function useLoadcellData(binId: string) {
             checkConnection(now);
         }
 
-        const alarmState = val.isAlarmActive ?? false;
-        setIsAlarmActive(alarmState);
+        const currentAlarmState = val.isAlarmActive ?? false;
+        setIsAlarmActive(currentAlarmState);
 
         if (typeof val.weight === 'number' && typeof val.level === 'number') {
             const newDataPoint: LoadCellData = {
                 weight: val.weight,
                 level: val.level,
                 timestamp: Date.now(),
-                isAlarmActive: alarmState,
+                isAlarmActive: currentAlarmState,
                 lastSeen: val.lastSeen
             };
 
@@ -127,7 +127,7 @@ export function useLoadcellData(binId: string) {
             });
             
             const shouldBeAlarmActive = newDataPoint.level > settings.warningThresholdLevel;
-            if (alarmState !== shouldBeAlarmActive) {
+            if (currentAlarmState !== shouldBeAlarmActive) {
                 update(dbRef, { isAlarmActive: shouldBeAlarmActive });
             }
         }
