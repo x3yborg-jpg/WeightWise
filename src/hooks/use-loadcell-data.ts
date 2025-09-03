@@ -129,35 +129,18 @@ export function useLoadcellData(binId: string) {
             const now = Date.now();
             
             const shouldLevelAlarmBeActive = val.level > settings.warningThresholdLevel;
-            const currentLevelAlarmState = val.isLevelAlarmActive ?? false;
-
             const shouldWeightAlarmBeActive = val.weight > settings.warningThresholdWeight;
-            const currentWeightAlarmState = val.isWeightAlarmActive ?? false;
 
+            // Always write the current alarm states and heartbeat info.
+            // This ensures the keys are created and always reflect the current status.
             const updates: Partial<RawData> = { 
                 lastSeen: now,
-                lastUpdatedNumber: val.IsON 
+                lastUpdatedNumber: val.IsON,
+                isLevelAlarmActive: shouldLevelAlarmBeActive,
+                isWeightAlarmActive: shouldWeightAlarmBeActive,
             };
             
-            let shouldUpdate = false;
-            
-            if (shouldLevelAlarmBeActive !== currentLevelAlarmState) {
-                updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
-                shouldUpdate = true;
-            }
-             if (shouldWeightAlarmBeActive !== currentWeightAlarmState) {
-                updates.isWeightAlarmActive = shouldWeightAlarmBeActive;
-                shouldUpdate = true;
-            }
-
-            // Only update if there are changes to be made
-            if (shouldUpdate) {
-                update(dbRef, updates);
-            } else {
-                 // Still update lastSeen and lastUpdatedNumber to keep heartbeat
-                 update(dbRef, { lastSeen: now, lastUpdatedNumber: val.IsON });
-            }
-
+            update(dbRef, updates);
             checkConnection(now);
         }
 
