@@ -307,5 +307,3 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
     </>
   );
 }
-
-    

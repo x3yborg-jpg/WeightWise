@@ -146,7 +146,7 @@ export function useLoadcellData(binId: string) {
             }
 
             // Only update if there are changes to be made
-            if (Object.keys(updates).length > 2) {
+            if (Object.keys(updates).length > 2) { // 2 because lastSeen and lastUpdatedNumber are always present
                 update(dbRef, updates);
             } else {
                  update(dbRef, { lastSeen: now, lastUpdatedNumber: val.IsON });
@@ -237,5 +237,3 @@ export function useLoadcellData(binId: string) {
       isWeightAlarmActive 
     };
 }
-
-    
