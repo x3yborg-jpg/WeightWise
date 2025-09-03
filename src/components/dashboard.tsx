@@ -2,16 +2,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { type LoadCellData, useLoadcellData } from '@/hooks/use-loadcell-data';
+import { type LoadCellData } from '@/hooks/use-loadcell-data';
 import { WeightDisplay } from '@/components/weight-display';
 import { LevelGauge } from '@/components/level-gauge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize, Siren } from 'lucide-react';
+import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize, Siren, Weight } from 'lucide-react';
 import { WeightChart } from './weight-chart';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
 import { playWarningSound } from '@/lib/audio';
 import { useToast } from '@/hooks/use-toast';
@@ -23,7 +22,8 @@ interface DashboardProps {
     data: LoadCellData | null;
     history: LoadCellData[];
     isConnected: boolean;
-    isAlarmActive: boolean;
+    isLevelAlarmActive: boolean;
+    isWeightAlarmActive: boolean;
     error: string | null;
 }
 
@@ -69,53 +69,94 @@ function DashboardSkeleton() {
   );
 }
 
-export function Dashboard({ binId, data, history, isConnected, isAlarmActive, error }: DashboardProps) {
+export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActive, isWeightAlarmActive, error }: DashboardProps) {
   const [openModal, setOpenModal] = useState<'level' | 'weight' | 'chart' | null>(null);
   const { settings } = useSettings();
   const { bins } = useBins();
   const { toast } = useToast();
-  const warningIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const hasTriggeredInitialWarning = useRef(false);
-
-   const triggerDashboardWarning = () => {
-      const currentBin = bins.find(b => b.id === binId);
-      if (!currentBin || !data) return;
-
-      playWarningSound();
-      toast({
-          title: `URGENT: ${currentBin.name} Level High`,
-          description: `The bin level is at ${data.level.toFixed(1)}%. Please empty it soon.`,
-          variant: 'destructive',
-          duration: 3000,
-      });
-  };
   
+  const levelWarningIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const weightWarningIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const hasTriggeredInitialLevelWarning = useRef(false);
+  const hasTriggeredInitialWeightWarning = useRef(false);
+
+  const triggerLevelWarning = () => {
+    const currentBin = bins.find(b => b.id === binId);
+    if (!currentBin || !data) return;
+
+    playWarningSound();
+    toast({
+        title: `URGENT: ${currentBin.name} Level High`,
+        description: `The bin level is at ${data.level.toFixed(1)}%. Please empty it soon.`,
+        variant: 'destructive',
+        duration: 3000,
+    });
+  };
+
+  const triggerWeightWarning = () => {
+    const currentBin = bins.find(b => b.id === binId);
+    if (!currentBin || !data) return;
+
+    playWarningSound();
+    toast({
+        title: `URGENT: ${currentBin.name} Weight High`,
+        description: `The bin weight is at ${(data.weight / 1000).toFixed(1)}kg.`,
+        variant: 'destructive',
+        duration: 3000,
+    });
+  };
+
+  // Effect for Level Alarms
   useEffect(() => {
-    if (isAlarmActive) {
-        if (!hasTriggeredInitialWarning.current) {
-            triggerDashboardWarning();
-            hasTriggeredInitialWarning.current = true;
+    if (isLevelAlarmActive) {
+        if (!hasTriggeredInitialLevelWarning.current) {
+            triggerLevelWarning();
+            hasTriggeredInitialLevelWarning.current = true;
         }
 
-        if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
-        warningIntervalRef.current = setInterval(() => {
-            triggerDashboardWarning();
-        }, settings.notificationInterval);
+        if (levelWarningIntervalRef.current) clearInterval(levelWarningIntervalRef.current);
+        levelWarningIntervalRef.current = setInterval(triggerLevelWarning, settings.notificationInterval);
 
     } else {
-        hasTriggeredInitialWarning.current = false;
-        if (warningIntervalRef.current) {
-            clearInterval(warningIntervalRef.current);
+        hasTriggeredInitialLevelWarning.current = false;
+        if (levelWarningIntervalRef.current) {
+            clearInterval(levelWarningIntervalRef.current);
         }
     }
 
     return () => {
-        if (warningIntervalRef.current) {
-            clearInterval(warningIntervalRef.current);
+        if (levelWarningIntervalRef.current) {
+            clearInterval(levelWarningIntervalRef.current);
         }
     };
-  }, [isAlarmActive, binId, settings.notificationInterval, bins, toast, data]);
+  }, [isLevelAlarmActive, binId, settings.notificationInterval, bins, data]);
+
+  // Effect for Weight Alarms
+  useEffect(() => {
+    if (isWeightAlarmActive) {
+        if (!hasTriggeredInitialWeightWarning.current) {
+            triggerWeightWarning();
+            hasTriggeredInitialWeightWarning.current = true;
+        }
+
+        if (weightWarningIntervalRef.current) clearInterval(weightWarningIntervalRef.current);
+        weightWarningIntervalRef.current = setInterval(triggerWeightWarning, settings.notificationInterval);
+
+    } else {
+        hasTriggeredInitialWeightWarning.current = false;
+        if (weightWarningIntervalRef.current) {
+            clearInterval(weightWarningIntervalRef.current);
+        }
+    }
+
+    return () => {
+        if (weightWarningIntervalRef.current) {
+            clearInterval(weightWarningIntervalRef.current);
+        }
+    };
+  }, [isWeightAlarmActive, binId, settings.notificationInterval, bins, data]);
+
 
   const ConnectionStatusAlert = () => (
      <Alert className="md:col-span-3 bg-yellow-500/10 border-yellow-500/50 text-yellow-400">
@@ -133,6 +174,14 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
       </Alert>
   );
 
+  const HighWeightWarningAlert = () => (
+    <Alert variant="destructive" className="md:col-span-3 animate-pulse">
+       <Weight className="h-4 w-4" />
+       <AlertTitle>URGENT: High Bin Weight!</AlertTitle>
+       <AlertDescription>The container weight is critical. Please check the contents.</AlertDescription>
+     </Alert>
+ );
+
 
   if (error) {
     return (
@@ -145,17 +194,19 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
   }
   
   const cardBaseClasses = "bg-card/50 backdrop-blur-sm transition-all duration-300 ease-in-out cursor-pointer hover:bg-card/80 hover:scale-[1.03] hover:border-primary/50 relative group";
+  const isAnyAlarmActive = isLevelAlarmActive || isWeightAlarmActive;
 
   return (
     <>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        {isAlarmActive && <HighLevelWarningAlert />}
+        {isLevelAlarmActive && <HighLevelWarningAlert />}
+        {isWeightAlarmActive && !isLevelAlarmActive && <HighWeightWarningAlert />}
         {!isConnected && <ConnectionStatusAlert />}
 
         {/* Level Gauge Card & Modal */}
         <Dialog open={openModal === 'level'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
             <DialogTrigger asChild onClick={() => setOpenModal('level')}>
-                <Card className={cn(cardBaseClasses, "md:col-span-1", isAlarmActive && "border-destructive hover:border-destructive/80")}>
+                <Card className={cn(cardBaseClasses, "md:col-span-1", isLevelAlarmActive && "border-destructive hover:border-destructive/80")}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Container Level</CardTitle>
                         <Waves className="h-4 w-4 text-muted-foreground" />
@@ -185,7 +236,7 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
         {/* Weight Display Card & Modal */}
          <Dialog open={openModal === 'weight'} onOpenChange={(isOpen) => !isOpen && setOpenModal(null)}>
             <DialogTrigger asChild onClick={() => setOpenModal('weight')}>
-                <Card className={cn(cardBaseClasses, "md:col-span-2")}>
+                <Card className={cn(cardBaseClasses, "md:col-span-2", isWeightAlarmActive && "border-destructive hover:border-destructive/80")}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Current Weight</CardTitle>
                         <Power className="h-4 w-4 text-muted-foreground" />
@@ -256,11 +307,5 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
     </>
   );
 }
-
-    
-
-    
-
-    
 
     

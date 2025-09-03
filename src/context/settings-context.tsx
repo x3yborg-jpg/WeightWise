@@ -7,10 +7,12 @@ import { database } from "@/lib/firebase";
 
 const DEFAULT_NOTIFICATION_INTERVAL = 1 * 60 * 60 * 1000; // 1 hour
 const DEFAULT_WARNING_LEVEL = 90; // 90%
+const DEFAULT_WARNING_WEIGHT = 35000; // 35kg in grams
 
 export interface GlobalSettings {
     notificationInterval: number;
     warningThresholdLevel: number;
+    warningThresholdWeight: number;
 }
 
 interface SettingsContextType {
@@ -27,6 +29,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<GlobalSettings>({
       notificationInterval: DEFAULT_NOTIFICATION_INTERVAL,
       warningThresholdLevel: DEFAULT_WARNING_LEVEL,
+      warningThresholdWeight: DEFAULT_WARNING_WEIGHT,
   });
   const [loading, setLoading] = useState(true);
 
@@ -39,12 +42,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             setSettings({
                 notificationInterval: data.notificationInterval ?? DEFAULT_NOTIFICATION_INTERVAL,
                 warningThresholdLevel: data.warningThresholdLevel ?? DEFAULT_WARNING_LEVEL,
+                warningThresholdWeight: data.warningThresholdWeight ?? DEFAULT_WARNING_WEIGHT,
             });
         } else {
             // If no global settings, create them with defaults
             const defaultSettings = {
                 notificationInterval: DEFAULT_NOTIFICATION_INTERVAL,
                 warningThresholdLevel: DEFAULT_WARNING_LEVEL,
+                warningThresholdWeight: DEFAULT_WARNING_WEIGHT,
             };
             set(settingsRef, defaultSettings);
             setSettings(defaultSettings);
@@ -89,3 +94,5 @@ export function useSettings() {
   }
   return context;
 }
+
+    

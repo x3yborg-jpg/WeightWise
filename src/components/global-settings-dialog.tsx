@@ -14,7 +14,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Loader2, Settings, Clock, Percent } from 'lucide-react';
+import { Loader2, Settings, Clock, Percent, Weight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import {
@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Slider } from './ui/slider';
+import { MAX_WEIGHT_G } from '@/hooks/use-loadcell-data';
 
 interface GlobalSettingsDialogProps {
   children: React.ReactNode;
@@ -44,11 +45,14 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
 
   const [notificationInterval, setNotificationInterval] = useState(settings.notificationInterval);
   const [warningThresholdLevel, setWarningThresholdLevel] = useState(settings.warningThresholdLevel);
+  const [warningThresholdWeight, setWarningThresholdWeight] = useState(settings.warningThresholdWeight);
+
 
   useEffect(() => {
     if(isDialogOpen) {
         setNotificationInterval(settings.notificationInterval);
         setWarningThresholdLevel(settings.warningThresholdLevel);
+        setWarningThresholdWeight(settings.warningThresholdWeight);
     }
   }, [settings, isDialogOpen]);
 
@@ -56,6 +60,7 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
     await updateSettings({ 
         notificationInterval,
         warningThresholdLevel,
+        warningThresholdWeight,
     });
     setIsDialogOpen(false);
     toast({ title: "Settings Updated", description: "Your global settings have been saved." });
@@ -100,6 +105,27 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
                 </div>
                  <p className="text-xs text-muted-foreground">A warning will be triggered when the bin's level exceeds this value.</p>
             </div>
+             <div className="space-y-2">
+                <Label htmlFor="weight-threshold" className="flex items-center gap-2 text-sm font-medium">
+                    <Weight className="h-4 w-4" />
+                    Warning Weight Threshold
+                </Label>
+                <div className="flex items-center gap-4">
+                    <Slider
+                        id="weight-threshold"
+                        min={0}
+                        max={MAX_WEIGHT_G}
+                        step={1000}
+                        value={[warningThresholdWeight]}
+                        onValueChange={(value) => setWarningThresholdWeight(value[0])}
+                        className="flex-1"
+                    />
+                    <div className="w-24 text-center text-lg font-mono font-semibold text-primary tabular-nums">
+                        {(warningThresholdWeight / 1000).toFixed(1)} kg
+                    </div>
+                </div>
+                 <p className="text-xs text-muted-foreground">A warning will be triggered when the bin's weight exceeds this value.</p>
+            </div>
           <div className="space-y-2">
             <Label htmlFor="interval" className="flex items-center gap-2">
                 <Clock className="h-4 w-4" />
@@ -120,7 +146,7 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
                     ))}
                 </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">How often to repeat the dashboard warning for a bin with high levels.</p>
+            <p className="text-xs text-muted-foreground">How often to repeat dashboard warnings for bins with high levels or weights.</p>
           </div>
         </div>
         <DialogFooter>
@@ -134,3 +160,5 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
     </Dialog>
   );
 }
+
+    

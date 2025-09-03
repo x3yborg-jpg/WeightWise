@@ -15,7 +15,8 @@ export interface LoadCellData {
   weight: number;
   level: number;
   timestamp: number;
-  isAlarmActive?: boolean;
+  isLevelAlarmActive?: boolean;
+  isWeightAlarmActive?: boolean;
   lastSeen?: number;
 }
 
@@ -24,7 +25,8 @@ export interface RawData {
     weight: number;
     level: number;
     IsON?: number;
-    isAlarmActive?: boolean;
+    isLevelAlarmActive?: boolean;
+    isWeightAlarmActive?: boolean;
     lastSeen?: number;
     lastUpdatedNumber?: number;
 }
@@ -44,7 +46,8 @@ const generateSampleData = (lastData?: LoadCellData): LoadCellData => {
     weight: Math.max(0, Math.min(MAX_WEIGHT_G, newWeight)),
     level: lastLevel,
     timestamp: Date.now(),
-    isAlarmActive: false,
+    isLevelAlarmActive: false,
+    isWeightAlarmActive: false,
     lastSeen: Date.now(),
   };
 };
@@ -55,7 +58,8 @@ export function useLoadcellData(binId: string) {
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
-  const [isAlarmActive, setIsAlarmActive] = useState(false);
+  const [isLevelAlarmActive, setIsLevelAlarmActive] = useState(false);
+  const [isWeightAlarmActive, setIsWeightAlarmActive] = useState(false);
   
   const { settings, loading: settingsLoading } = useSettings();
 
@@ -77,7 +81,8 @@ export function useLoadcellData(binId: string) {
     setError(null);
     setLoading(true);
     setIsDemoMode(false);
-    setIsAlarmActive(false);
+    setIsLevelAlarmActive(false);
+    setIsWeightAlarmActive(false);
 
     const dbRef = ref(database, binId);
 
@@ -96,15 +101,17 @@ export function useLoadcellData(binId: string) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
-        const currentDbAlarmState = val.isAlarmActive ?? false;
-        setIsAlarmActive(currentDbAlarmState);
+        // Update local state from Firebase
+        setIsLevelAlarmActive(val.isLevelAlarmActive ?? false);
+        setIsWeightAlarmActive(val.isWeightAlarmActive ?? false);
 
         if (typeof val.weight === 'number' && typeof val.level === 'number') {
             const newDataPoint: LoadCellData = {
                 weight: val.weight,
                 level: val.level,
                 timestamp: Date.now(),
-                isAlarmActive: currentDbAlarmState,
+                isLevelAlarmActive: val.isLevelAlarmActive,
+                isWeightAlarmActive: val.isWeightAlarmActive,
                 lastSeen: val.lastSeen
             };
 
@@ -116,27 +123,35 @@ export function useLoadcellData(binId: string) {
             });
         }
         
-        // Handle heartbeat and connection status
-        // CRITICAL FIX: The alarm logic is now nested inside the heartbeat check.
-        // This ensures we only update the alarm status when we receive a real new data point from the device,
-        // preventing the recursive update loop.
+        // Handle heartbeat and alarm logic only when new data arrives from device
         if (val.IsON !== undefined && val.IsON !== 0 && val.IsON !== val.lastUpdatedNumber) {
             const now = Date.now();
             
-            const shouldBeAlarmActive = val.level > settings.warningThresholdLevel;
-            const currentAlarmState = val.isAlarmActive ?? false;
+            const shouldLevelAlarmBeActive = val.level > settings.warningThresholdLevel;
+            const currentLevelAlarmState = val.isLevelAlarmActive ?? false;
+
+            const shouldWeightAlarmBeActive = val.weight > settings.warningThresholdWeight;
+            const currentWeightAlarmState = val.isWeightAlarmActive ?? false;
 
             const updates: Partial<RawData> = { 
                 lastSeen: now,
                 lastUpdatedNumber: val.IsON 
             };
             
-            // Only include `isAlarmActive` in the update if it needs to change.
-            if (shouldBeAlarmActive !== currentAlarmState) {
-                updates.isAlarmActive = shouldBeAlarmActive;
+            if (shouldLevelAlarmBeActive !== currentLevelAlarmState) {
+                updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
+            }
+             if (shouldWeightAlarmBeActive !== currentWeightAlarmState) {
+                updates.isWeightAlarmActive = shouldWeightAlarmBeActive;
             }
 
-            update(dbRef, updates);
+            // Only update if there are changes to be made
+            if (Object.keys(updates).length > 2) {
+                update(dbRef, updates);
+            } else {
+                 update(dbRef, { lastSeen: now, lastUpdatedNumber: val.IsON });
+            }
+
             checkConnection(now);
         }
 
@@ -170,13 +185,12 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       clearInterval(intervalId);
     };
-  }, [binId, settingsLoading, settings.warningThresholdLevel, checkConnection]);
+  }, [binId, settingsLoading, settings.warningThresholdLevel, settings.warningThresholdWeight, checkConnection]);
 
   // Demo mode effect
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
     if (isDemoMode) {
-      // Initialize with a full set of data points
       const initialData: LoadCellData[] = [];
       let lastData: LoadCellData | undefined = undefined;
       for (let i = 0; i < MAX_DATA_POINTS; i++) {
@@ -185,15 +199,21 @@ export function useLoadcellData(binId: string) {
       }
       setDataHistory(initialData);
 
-      // Start interval to add new points
       intervalId = setInterval(() => {
         setDataHistory(prevHistory => {
           const newPoint = generateSampleData(prevHistory[prevHistory.length - 1]);
           
-          const shouldBeAlarmActive = newPoint.level > settings.warningThresholdLevel;
-          setIsAlarmActive(shouldBeAlarmActive); // Update local state for demo
+          const shouldLevelAlarmBeActive = newPoint.level > settings.warningThresholdLevel;
+          const shouldWeightAlarmBeActive = newPoint.weight > settings.warningThresholdWeight;
+          setIsLevelAlarmActive(shouldLevelAlarmBeActive);
+          setIsWeightAlarmActive(shouldWeightAlarmBeActive);
           
-          const newHistory = [...prevHistory, { ...newPoint, isAlarmActive: shouldBeAlarmActive, lastSeen: Date.now() }];
+          const newHistory = [...prevHistory, { 
+              ...newPoint, 
+              isLevelAlarmActive: shouldLevelAlarmBeActive,
+              isWeightAlarmActive: shouldWeightAlarmBeActive,
+              lastSeen: Date.now() 
+            }];
            return newHistory.length > MAX_DATA_POINTS 
                 ? newHistory.slice(newHistory.length - MAX_DATA_POINTS)
                 : newHistory;
@@ -203,9 +223,19 @@ export function useLoadcellData(binId: string) {
     return () => {
       if (intervalId) clearInterval(intervalId);
     }
-  }, [isDemoMode, settings.warningThresholdLevel]);
+  }, [isDemoMode, settings.warningThresholdLevel, settings.warningThresholdWeight]);
   
   const latestData = dataHistory.length > 0 ? dataHistory[dataHistory.length-1] : null;
 
-  return { data: latestData, history: dataHistory, loading, error, isConnected, isAlarmActive };
+  return { 
+      data: latestData, 
+      history: dataHistory, 
+      loading, 
+      error, 
+      isConnected, 
+      isLevelAlarmActive,
+      isWeightAlarmActive 
+    };
 }
+
+    

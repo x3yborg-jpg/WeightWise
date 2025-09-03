@@ -27,7 +27,15 @@ export default function BinPage({ params }: BinPageProps) {
   const router = useRouter();
   const { bins, loading: binsLoading } = useBins();
   const currentBin = useMemo(() => bins.find(b => b.id === binId), [bins, binId]);
-  const { data, history, loading: dashboardLoading, error, isConnected, isAlarmActive } = useLoadcellData(binId);
+  const { 
+      data, 
+      history, 
+      loading: dashboardLoading, 
+      error, 
+      isConnected, 
+      isLevelAlarmActive, 
+      isWeightAlarmActive 
+    } = useLoadcellData(binId);
   const [lastSeenText, setLastSeenText] = useState('');
 
   useEffect(() => {
@@ -121,7 +129,8 @@ export default function BinPage({ params }: BinPageProps) {
                     data={data}
                     history={history}
                     isConnected={isConnected}
-                    isAlarmActive={isAlarmActive}
+                    isLevelAlarmActive={isLevelAlarmActive}
+                    isWeightAlarmActive={isWeightAlarmActive}
                     error={error}
                 />
             </div>
