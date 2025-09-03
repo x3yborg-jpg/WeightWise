@@ -79,14 +79,14 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
 
    const triggerDashboardWarning = () => {
       const currentBin = bins.find(b => b.id === binId);
-      if (!currentBin) return;
+      if (!currentBin || !data) return;
 
       playWarningSound();
       toast({
-          title: `URGENT: Bin Level High`,
-          description: `The bin '${currentBin.name}' level is critical. Please empty it soon.`,
+          title: `URGENT: ${currentBin.name} Level High`,
+          description: `The bin level is at ${data.level.toFixed(1)}%. Please empty it soon.`,
           variant: 'destructive',
-          duration: 10000,
+          duration: 3000,
       });
   };
   
@@ -115,7 +115,7 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
             clearInterval(warningIntervalRef.current);
         }
     };
-  }, [isAlarmActive, binId, settings.notificationInterval, bins, toast]);
+  }, [isAlarmActive, binId, settings.notificationInterval, bins, toast, data]);
 
   const ConnectionStatusAlert = () => (
      <Alert className="md:col-span-3 bg-yellow-500/10 border-yellow-500/50 text-yellow-400">
@@ -256,6 +256,8 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
     </>
   );
 }
+
+    
 
     
 
