@@ -102,7 +102,7 @@ export function useLoadcellData(binId: string) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
-        // Update local state from Firebase
+        // Update local state from Firebase for the UI to react
         setIsLevelAlarmActive(val.isLevelAlarmActive ?? false);
         setIsWeightAlarmActive(val.isWeightAlarmActive ?? false);
 
@@ -122,26 +122,36 @@ export function useLoadcellData(binId: string) {
                         ? newHistory.slice(newHistory.length - MAX_DATA_POINTS) 
                         : newHistory;
             });
-        }
-        
-        // Handle heartbeat and alarm logic only when new data arrives from device
-        if (val.IsON !== undefined && val.IsON !== 0 && val.IsON !== val.lastUpdatedNumber) {
-            const now = Date.now();
-            
+
+            // --- Robust Alarm Logic ---
             const shouldLevelAlarmBeActive = val.level > settings.warningThresholdLevel;
             const shouldWeightAlarmBeActive = val.weight > settings.warningThresholdWeight;
 
-            // Always write the current alarm states and heartbeat info.
-            // This ensures the keys are created and always reflect the current status.
-            const updates: Partial<RawData> = { 
-                lastSeen: now,
-                lastUpdatedNumber: val.IsON,
-                isLevelAlarmActive: shouldLevelAlarmBeActive,
-                isWeightAlarmActive: shouldWeightAlarmBeActive,
-            };
-            
-            update(dbRef, updates);
-            checkConnection(now);
+            const updates: Partial<RawData> = {};
+            let needsUpdate = false;
+
+            // Only update if the calculated state differs from the DB state
+            if (shouldLevelAlarmBeActive !== val.isLevelAlarmActive) {
+                updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
+                needsUpdate = true;
+            }
+             if (shouldWeightAlarmBeActive !== val.isWeightAlarmActive) {
+                updates.isWeightAlarmActive = shouldWeightAlarmBeActive;
+                needsUpdate = true;
+            }
+
+            // Also handle heartbeat update if it's a new device reading
+            if (val.IsON !== undefined && val.IsON !== 0 && val.IsON !== val.lastUpdatedNumber) {
+                const now = Date.now();
+                updates.lastSeen = now;
+                updates.lastUpdatedNumber = val.IsON;
+                needsUpdate = true;
+                checkConnection(now);
+            }
+
+            if (needsUpdate) {
+                 update(dbRef, updates);
+            }
         }
 
       } else {
