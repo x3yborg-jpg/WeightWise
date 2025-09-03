@@ -49,7 +49,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4 sm:p-6">
+    <div className="flex min-h-screen w-full flex-col items-center justify-start pt-20 sm:pt-24 bg-background p-4 sm:p-6">
        <div 
         className="absolute inset-0 -z-10 h-full w-full bg-background 
                    bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]"
