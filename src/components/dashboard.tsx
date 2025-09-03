@@ -262,3 +262,5 @@ export function Dashboard({ binId, data, history, isConnected, isAlarmActive, er
     
 
     
+
+    
