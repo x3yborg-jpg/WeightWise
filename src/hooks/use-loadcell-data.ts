@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ref, onValue, off, update } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { useSettings } from '@/context/settings-context';
+import { sendNotification, type NotificationInput } from '@/ai/schemas/notification-schema';
 
 export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
@@ -138,17 +139,22 @@ export function useLoadcellData(binId: string) {
                 lastUpdatedNumber: val.IsON 
             };
             
+            let shouldUpdate = false;
+            
             if (shouldLevelAlarmBeActive !== currentLevelAlarmState) {
                 updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
+                shouldUpdate = true;
             }
              if (shouldWeightAlarmBeActive !== currentWeightAlarmState) {
                 updates.isWeightAlarmActive = shouldWeightAlarmBeActive;
+                shouldUpdate = true;
             }
 
             // Only update if there are changes to be made
-            if (Object.keys(updates).length > 2) { // 2 because lastSeen and lastUpdatedNumber are always present
+            if (shouldUpdate) {
                 update(dbRef, updates);
             } else {
+                 // Still update lastSeen and lastUpdatedNumber to keep heartbeat
                  update(dbRef, { lastSeen: now, lastUpdatedNumber: val.IsON });
             }
 

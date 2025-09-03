@@ -178,7 +178,7 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
     <Alert variant="destructive" className="md:col-span-3 animate-pulse">
        <Weight className="h-4 w-4" />
        <AlertTitle>URGENT: High Bin Weight!</AlertTitle>
-       <AlertDescription>The container weight is critical. Please check the contents.</AlertDescription>
+       <AlertDescription>The container weight is critical. Please check the contents.</AlertDescription>     
      </Alert>
  );
 
