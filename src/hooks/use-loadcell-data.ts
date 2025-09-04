@@ -103,6 +103,7 @@ export function useLoadcellData(binId: string) {
         setIsLevelAlarmActive(val.isLevelAlarmActive ?? false);
         setIsWeightAlarmActive(val.isWeightAlarmActive ?? false);
         
+        // Initialize the ref with the first value read from the database
         if (lastIsONRef.current === undefined) {
           lastIsONRef.current = val.IsON;
         }
@@ -126,28 +127,23 @@ export function useLoadcellData(binId: string) {
             
             const updates: Partial<RawData> = {};
             
+            // Check connection status based on the last seen time
+            checkConnection(val.lastSeen ?? 0);
+            
             // Only update lastSeen if the IsON heartbeat value has changed
             if (val.IsON !== undefined && val.IsON !== lastIsONRef.current) {
               updates.lastSeen = Date.now();
-              checkConnection(updates.lastSeen);
               lastIsONRef.current = val.IsON; // Update the ref with the new value
-            } else if (val.lastSeen) {
-                // If IsON hasn't changed, still check connection based on existing lastSeen
-                checkConnection(val.lastSeen);
             }
 
             const shouldLevelAlarmBeActive = val.level > settings.warningThresholdLevel;
             const shouldWeightAlarmBeActive = val.weight > settings.warningThresholdWeight;
 
-            let hasStateChanged = false;
-
             if (shouldLevelAlarmBeActive !== val.isLevelAlarmActive) {
                 updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
-                hasStateChanged = true;
             }
             if (shouldWeightAlarmBeActive !== val.isWeightAlarmActive) {
                 updates.isWeightAlarmActive = shouldWeightAlarmBeActive;
-                hasStateChanged = true;
             }
 
             // --- NOTIFICATION LOGIC ---
@@ -168,10 +164,8 @@ export function useLoadcellData(binId: string) {
                         alertType: 'level',
                      });
                     updates.levelAlarmSent = true;
-                    hasStateChanged = true;
                 } else if (!shouldLevelAlarmBeActive && val.levelAlarmSent) {
                     updates.levelAlarmSent = false;
-                    hasStateChanged = true;
                 }
                 
                 // Weight Alarm Notification
@@ -187,10 +181,8 @@ export function useLoadcellData(binId: string) {
                         alertType: 'weight',
                         });
                     updates.weightAlarmSent = true;
-                    hasStateChanged = true;
                 } else if (!shouldWeightAlarmBeActive && val.weightAlarmSent) {
                     updates.weightAlarmSent = false;
-                    hasStateChanged = true;
                 }
             }
 
