@@ -33,7 +33,6 @@ export interface RawData {
     levelAlarmSent?: boolean;
     weightAlarmSent?: boolean;
     lastSeen?: number;
-    lastUpdatedNumber?: number;
 }
 
 // Function to generate sample data
@@ -120,65 +119,72 @@ export function useLoadcellData(binId: string) {
             });
             
             const updates: Partial<RawData> = {};
-            const now = Date.now();
-            let hasHeartbeat = false;
-
+            
             if (val.IsON !== undefined && val.IsON !== 0) {
-              if(val.IsON !== val.lastUpdatedNumber) {
-                 updates.lastUpdatedNumber = val.IsON;
-              }
-              updates.lastSeen = now;
-              checkConnection(now);
-              hasHeartbeat = true;
+              updates.lastSeen = Date.now();
+              checkConnection(updates.lastSeen);
             }
 
             const shouldLevelAlarmBeActive = val.level > settings.warningThresholdLevel;
             const shouldWeightAlarmBeActive = val.weight > settings.warningThresholdWeight;
 
-            // Only update if the calculated state differs from the one in Firebase.
-            // This prevents recursive updates.
-            if(shouldLevelAlarmBeActive !== val.isLevelAlarmActive) {
-                updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
-            }
+            let hasStateChanged = false;
 
-            if(shouldWeightAlarmBeActive !== val.isWeightAlarmActive) {
+            if (shouldLevelAlarmBeActive !== val.isLevelAlarmActive) {
+                updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
+                hasStateChanged = true;
+            }
+            if (shouldWeightAlarmBeActive !== val.isWeightAlarmActive) {
                 updates.isWeightAlarmActive = shouldWeightAlarmBeActive;
+                hasStateChanged = true;
             }
 
             // --- NOTIFICATION LOGIC ---
-            // Level Alarm Notification
-            if (shouldLevelAlarmBeActive && !val.levelAlarmSent) {
-                const currentBin = bins.find(b => b.id === binId);
-                if (currentBin) {
+            const currentBin = bins.find(b => b.id === binId);
+            const isDeviceOnline = updates.lastSeen ? (Date.now() - updates.lastSeen < HEARTBEAT_TIMEOUT) : isConnected;
+
+            if (currentBin) {
+                // Level Alarm Notification
+                if (shouldLevelAlarmBeActive && !val.levelAlarmSent) {
                     sendWhatsappAlert({ 
                         binName: currentBin.name,
+                        location: currentBin.location,
+                        binId: currentBin.id,
+                        deviceId: currentBin.deviceId,
+                        isOnline: isDeviceOnline,
                         level: val.level,
                         weight: val.weight,
                         alertType: 'level',
                      });
+                    updates.levelAlarmSent = true;
+                    hasStateChanged = true;
+                } else if (!shouldLevelAlarmBeActive && val.levelAlarmSent) {
+                    updates.levelAlarmSent = false;
+                    hasStateChanged = true;
                 }
-                updates.levelAlarmSent = true;
-            } else if (!shouldLevelAlarmBeActive && val.levelAlarmSent) {
-                updates.levelAlarmSent = false;
-            }
-            
-            // Weight Alarm Notification
-            if (shouldWeightAlarmBeActive && !val.weightAlarmSent) {
-                const currentBin = bins.find(b => b.id === binId);
-                    if (currentBin) {
+                
+                // Weight Alarm Notification
+                if (shouldWeightAlarmBeActive && !val.weightAlarmSent) {
                     sendWhatsappAlert({ 
                         binName: currentBin.name,
+                        location: currentBin.location,
+                        binId: currentBin.id,
+                        deviceId: currentBin.deviceId,
+                        isOnline: isDeviceOnline,
                         level: val.level,
                         weight: val.weight,
                         alertType: 'weight',
                         });
+                    updates.weightAlarmSent = true;
+                    hasStateChanged = true;
+                } else if (!shouldWeightAlarmBeActive && val.weightAlarmSent) {
+                    updates.weightAlarmSent = false;
+                    hasStateChanged = true;
                 }
-                updates.weightAlarmSent = true;
-            } else if (!shouldWeightAlarmBeActive && val.weightAlarmSent) {
-                updates.weightAlarmSent = false;
             }
 
-            if (Object.keys(updates).length > 0) {
+
+            if (hasStateChanged || updates.lastSeen) {
                  await update(dbRef, updates);
             }
         }
@@ -212,7 +218,7 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       clearInterval(intervalId);
     };
-  }, [binId, settingsLoading, settings.warningThresholdLevel, settings.warningThresholdWeight, checkConnection, bins]);
+  }, [binId, settingsLoading, settings.warningThresholdLevel, settings.warningThresholdWeight, checkConnection, bins, isConnected]);
 
   // Demo mode effect
   useEffect(() => {

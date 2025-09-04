@@ -20,6 +20,10 @@ const WhatsappAlertInputSchema = z.object({
   level: z.number().describe("The current level of the bin."),
   weight: z.number().describe("The current weight of the bin in grams."),
   alertType: z.enum(['level', 'weight']).describe("The type of alert being triggered."),
+  location: z.string().describe("The location of the bin."),
+  binId: z.string().describe("The ID of the bin (e.g., 'bin1')."),
+  deviceId: z.string().describe("The hardware device ID of the bin's sensor."),
+  isOnline: z.boolean().describe("The connection status of the device."),
 });
 type WhatsappAlertInput = z.infer<typeof WhatsappAlertInputSchema>;
 
@@ -50,15 +54,20 @@ const sendNotificationFlow = ai.defineFlow(
 
     const url = `https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
-    // Construct a precise and clear message
-    let messageBody = '';
+    let alertTitle = '';
+    let alertDetails = '';
+    const weightInKg = (input.weight / 1000).toFixed(1);
+    const deviceStatus = input.isOnline ? 'Online' : 'Offline';
+
     if (input.alertType === 'level') {
-        messageBody = `🚨 *High Level Alert* 🚨\n\n*Bin:* ${input.binName}\n*Level:* ${input.level.toFixed(1)}%`;
+        alertTitle = `🚨 *High Level Alert* 🚨`;
+        alertDetails = `*Level:* ${input.level.toFixed(1)}%`;
     } else {
-        const weightInKg = (input.weight / 1000).toFixed(1);
-        messageBody = `⚖️ *High Weight Alert* ⚖️\n\n*Bin:* ${input.binName}\n*Weight:* ${weightInKg} kg`;
+        alertTitle = `⚖️ *High Weight Alert* ⚖️`;
+        alertDetails = `*Weight:* ${weightInKg} kg`;
     }
 
+    const messageBody = `${alertTitle}\n\n*Bin:* ${input.binName}\n*Location:* ${input.location}\n\n*Trigger:* ${alertDetails}\n\n---\n*Bin ID:* ${input.binId}\n*Device ID:* ${input.deviceId}\n*Status:* ${deviceStatus}`;
 
     const payload = {
         messaging_product: 'whatsapp',
