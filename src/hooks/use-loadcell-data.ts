@@ -67,6 +67,7 @@ export function useLoadcellData(binId: string) {
   
   const { settings, loading: settingsLoading } = useSettings();
   const { bins } = useBins();
+  const lastIsONRef = useRef<number | undefined>(undefined);
 
   const checkConnection = useCallback((lastSeenTime: number) => {
       const now = Date.now();
@@ -88,6 +89,7 @@ export function useLoadcellData(binId: string) {
     setIsDemoMode(false);
     setIsLevelAlarmActive(false);
     setIsWeightAlarmActive(false);
+    lastIsONRef.current = undefined;
 
     const dbRef = ref(database, binId);
 
@@ -100,6 +102,10 @@ export function useLoadcellData(binId: string) {
         // Update local state from Firebase for the UI to react
         setIsLevelAlarmActive(val.isLevelAlarmActive ?? false);
         setIsWeightAlarmActive(val.isWeightAlarmActive ?? false);
+        
+        if (lastIsONRef.current === undefined) {
+          lastIsONRef.current = val.IsON;
+        }
 
         if (typeof val.weight === 'number' && typeof val.level === 'number') {
             const newDataPoint: LoadCellData = {
@@ -120,9 +126,14 @@ export function useLoadcellData(binId: string) {
             
             const updates: Partial<RawData> = {};
             
-            if (val.IsON !== undefined && val.IsON !== 0) {
+            // Only update lastSeen if the IsON heartbeat value has changed
+            if (val.IsON !== undefined && val.IsON !== lastIsONRef.current) {
               updates.lastSeen = Date.now();
               checkConnection(updates.lastSeen);
+              lastIsONRef.current = val.IsON; // Update the ref with the new value
+            } else if (val.lastSeen) {
+                // If IsON hasn't changed, still check connection based on existing lastSeen
+                checkConnection(val.lastSeen);
             }
 
             const shouldLevelAlarmBeActive = val.level > settings.warningThresholdLevel;
@@ -141,7 +152,7 @@ export function useLoadcellData(binId: string) {
 
             // --- NOTIFICATION LOGIC ---
             const currentBin = bins.find(b => b.id === binId);
-            const isDeviceOnline = updates.lastSeen ? (Date.now() - updates.lastSeen < HEARTBEAT_TIMEOUT) : isConnected;
+            const isDeviceOnline = val.lastSeen ? (Date.now() - val.lastSeen < HEARTBEAT_TIMEOUT) : isConnected;
 
             if (currentBin) {
                 // Level Alarm Notification
@@ -184,7 +195,7 @@ export function useLoadcellData(binId: string) {
             }
 
 
-            if (hasStateChanged || updates.lastSeen) {
+            if (Object.keys(updates).length > 0) {
                  await update(dbRef, updates);
             }
         }
@@ -218,7 +229,7 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       clearInterval(intervalId);
     };
-  }, [binId, settingsLoading, settings.warningThresholdLevel, settings.warningThresholdWeight, checkConnection, bins, isConnected]);
+  }, [binId, settingsLoading, settings.warningThresholdLevel, settings.warningThresholdWeight, checkConnection, bins]);
 
   // Demo mode effect
   useEffect(() => {
