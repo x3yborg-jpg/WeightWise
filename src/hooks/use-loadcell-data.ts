@@ -5,7 +5,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ref, onValue, off, update } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { useSettings } from '@/context/settings-context';
-import { sendNotification, type NotificationInput } from '@/ai/schemas/notification-schema';
+import { sendNotificationFlow } from '@/ai/flows/notification-flow';
+import { useBins } from '@/context/bin-context';
+
 
 export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
@@ -28,6 +30,8 @@ export interface RawData {
     IsON?: number;
     isLevelAlarmActive?: boolean;
     isWeightAlarmActive?: boolean;
+    levelAlarmSent?: boolean;
+    weightAlarmSent?: boolean;
     lastSeen?: number;
     lastUpdatedNumber?: number;
 }
@@ -63,6 +67,7 @@ export function useLoadcellData(binId: string) {
   const [isWeightAlarmActive, setIsWeightAlarmActive] = useState(false);
   
   const { settings, loading: settingsLoading } = useSettings();
+  const { bins } = useBins();
 
   const checkConnection = useCallback((lastSeenTime: number) => {
       const now = Date.now();
@@ -128,28 +133,43 @@ export function useLoadcellData(binId: string) {
             const shouldWeightAlarmBeActive = val.weight > settings.warningThresholdWeight;
 
             const updates: Partial<RawData> = {};
-            let needsUpdate = false;
-
-            // Only update if the calculated state differs from the DB state
-            if (shouldLevelAlarmBeActive !== val.isLevelAlarmActive) {
-                updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
-                needsUpdate = true;
+            
+            // Level Alarm Logic
+            if (shouldLevelAlarmBeActive) {
+                if (val.isLevelAlarmActive !== true) updates.isLevelAlarmActive = true;
+                if (!val.levelAlarmSent) {
+                    const currentBin = bins.find(b => b.id === binId);
+                    const message = `🚨 URGENT: High Level Alert! 🚨\n\nBin: *${currentBin?.name || binId}*\nLevel: *${val.level.toFixed(1)}%*\n\nPlease arrange for emptying.`;
+                    sendNotificationFlow({ message });
+                    updates.levelAlarmSent = true;
+                }
+            } else {
+                if (val.isLevelAlarmActive !== false) updates.isLevelAlarmActive = false;
+                if (val.levelAlarmSent) updates.levelAlarmSent = false;
             }
-             if (shouldWeightAlarmBeActive !== val.isWeightAlarmActive) {
-                updates.isWeightAlarmActive = shouldWeightAlarmBeActive;
-                needsUpdate = true;
-            }
 
-            // Also handle heartbeat update if it's a new device reading
+            // Weight Alarm Logic
+            if (shouldWeightAlarmBeActive) {
+                if (val.isWeightAlarmActive !== true) updates.isWeightAlarmActive = true;
+                 if (!val.weightAlarmSent) {
+                    const currentBin = bins.find(b => b.id === binId);
+                    const message = `⚖️ URGENT: High Weight Alert! ⚖️\n\nBin: *${currentBin?.name || binId}*\nWeight: *${(val.weight / 1000).toFixed(1)} kg*\n\nPlease check the contents.`;
+                    sendNotificationFlow({ message });
+                    updates.weightAlarmSent = true;
+                }
+            } else {
+                if (val.isWeightAlarmActive !== false) updates.isWeightAlarmActive = false;
+                if (val.weightAlarmSent) updates.weightAlarmSent = false;
+            }
+            
             if (val.IsON !== undefined && val.IsON !== 0 && val.IsON !== val.lastUpdatedNumber) {
                 const now = Date.now();
                 updates.lastSeen = now;
                 updates.lastUpdatedNumber = val.IsON;
-                needsUpdate = true;
                 checkConnection(now);
             }
 
-            if (needsUpdate) {
+            if (Object.keys(updates).length > 0) {
                  update(dbRef, updates);
             }
         }
@@ -184,7 +204,7 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       clearInterval(intervalId);
     };
-  }, [binId, settingsLoading, settings.warningThresholdLevel, settings.warningThresholdWeight, checkConnection]);
+  }, [binId, settingsLoading, settings.warningThresholdLevel, settings.warningThresholdWeight, checkConnection, bins]);
 
   // Demo mode effect
   useEffect(() => {

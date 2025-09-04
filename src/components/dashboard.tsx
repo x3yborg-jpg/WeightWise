@@ -8,7 +8,7 @@ import { LevelGauge } from '@/components/level-gauge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize, Siren, Weight } from 'lucide-react';
+import { AlertTriangle, WifiOff, Wifi, Power, Waves, LineChart, Maximize, Siren, Weight, MessageSquareText } from 'lucide-react';
 import { WeightChart } from './weight-chart';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -88,7 +88,15 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
     playWarningSound();
     toast({
         title: `URGENT: ${currentBin.name} Level High`,
-        description: `The bin level is at ${data.level.toFixed(1)}%. Please empty it soon.`,
+        description: (
+          <div className="flex flex-col gap-2">
+            <span>The bin level is at {data.level.toFixed(1)}%. Please empty it soon.</span>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground border-t border-border/50 pt-2 mt-2">
+              <MessageSquareText className="h-4 w-4 text-green-400" />
+              <span>WhatsApp notification also sent.</span>
+            </div>
+          </div>
+        ),
         variant: 'destructive',
         duration: 3000,
     });
@@ -101,7 +109,15 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
     playWarningSound();
     toast({
         title: `URGENT: ${currentBin.name} Weight High`,
-        description: `The bin weight is at ${(data.weight / 1000).toFixed(1)}kg.`,
+        description: (
+          <div className="flex flex-col gap-2">
+            <span>The bin weight is at ${(data.weight / 1000).toFixed(1)}kg.</span>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground border-t border-border/50 pt-2 mt-2">
+              <MessageSquareText className="h-4 w-4 text-green-400" />
+              <span>WhatsApp notification also sent.</span>
+            </div>
+          </div>
+        ),
         variant: 'destructive',
         duration: 3000,
     });
