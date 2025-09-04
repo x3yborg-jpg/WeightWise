@@ -21,8 +21,7 @@ interface BinPageProps {
     }
 }
 
-export default function BinPage({ params }: BinPageProps) {
-  const { binId } = params;
+export default function BinPage({ params: { binId } }: BinPageProps) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { bins, loading: binsLoading } = useBins();
@@ -138,5 +137,3 @@ export default function BinPage({ params }: BinPageProps) {
     </div>
   );
 }
-
-    
