@@ -2,10 +2,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ref, onValue, off, update } from 'firebase/database';
+import { ref, onValue, off, update, get } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { useSettings } from '@/context/settings-context';
-import { sendNotificationFlow } from '@/ai/flows/notification-flow';
+import { sendWhatsappAlert } from '@/ai/flows/notification-flow';
 import { useBins } from '@/context/bin-context';
 
 
@@ -92,16 +92,7 @@ export function useLoadcellData(binId: string) {
 
     const dbRef = ref(database, binId);
 
-    // Initial check for connection status
-    onValue(dbRef, (snapshot) => {
-        if(snapshot.exists()) {
-            const val: RawData = snapshot.val();
-            checkConnection(val.lastSeen ?? 0);
-        }
-    }, { onlyOnce: true });
-
-
-    const listener = onValue(dbRef, (snapshot) => {
+    const listener = onValue(dbRef, async (snapshot) => {
       setLoading(false);
       if (snapshot.exists()) {
         setIsDemoMode(false);
@@ -127,50 +118,68 @@ export function useLoadcellData(binId: string) {
                         ? newHistory.slice(newHistory.length - MAX_DATA_POINTS) 
                         : newHistory;
             });
+            
+            const updates: Partial<RawData> = {};
+            const now = Date.now();
+            let hasHeartbeat = false;
 
-            // --- Robust Alarm Logic ---
+            if (val.IsON !== undefined && val.IsON !== 0) {
+              if(val.IsON !== val.lastUpdatedNumber) {
+                 updates.lastUpdatedNumber = val.IsON;
+              }
+              updates.lastSeen = now;
+              checkConnection(now);
+              hasHeartbeat = true;
+            }
+
             const shouldLevelAlarmBeActive = val.level > settings.warningThresholdLevel;
             const shouldWeightAlarmBeActive = val.weight > settings.warningThresholdWeight;
 
-            const updates: Partial<RawData> = {};
-            
-            // Level Alarm Logic
-            if (shouldLevelAlarmBeActive) {
-                if (val.isLevelAlarmActive !== true) updates.isLevelAlarmActive = true;
-                if (!val.levelAlarmSent) {
-                    const currentBin = bins.find(b => b.id === binId);
-                    const message = `🚨 URGENT: High Level Alert! 🚨\n\nBin: *${currentBin?.name || binId}*\nLevel: *${val.level.toFixed(1)}%*\n\nPlease arrange for emptying.`;
-                    sendNotificationFlow({ message });
-                    updates.levelAlarmSent = true;
-                }
-            } else {
-                if (val.isLevelAlarmActive !== false) updates.isLevelAlarmActive = false;
-                if (val.levelAlarmSent) updates.levelAlarmSent = false;
+            // Only update if the calculated state differs from the one in Firebase.
+            // This prevents recursive updates.
+            if(shouldLevelAlarmBeActive !== val.isLevelAlarmActive) {
+                updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
             }
 
-            // Weight Alarm Logic
-            if (shouldWeightAlarmBeActive) {
-                if (val.isWeightAlarmActive !== true) updates.isWeightAlarmActive = true;
-                 if (!val.weightAlarmSent) {
-                    const currentBin = bins.find(b => b.id === binId);
-                    const message = `⚖️ URGENT: High Weight Alert! ⚖️\n\nBin: *${currentBin?.name || binId}*\nWeight: *${(val.weight / 1000).toFixed(1)} kg*\n\nPlease check the contents.`;
-                    sendNotificationFlow({ message });
-                    updates.weightAlarmSent = true;
+            if(shouldWeightAlarmBeActive !== val.isWeightAlarmActive) {
+                updates.isWeightAlarmActive = shouldWeightAlarmBeActive;
+            }
+
+            // --- NOTIFICATION LOGIC ---
+            // Level Alarm Notification
+            if (shouldLevelAlarmBeActive && !val.levelAlarmSent) {
+                const currentBin = bins.find(b => b.id === binId);
+                if (currentBin) {
+                    sendWhatsappAlert({ 
+                        binName: currentBin.name,
+                        level: val.level,
+                        weight: val.weight,
+                        alertType: 'level',
+                     });
                 }
-            } else {
-                if (val.isWeightAlarmActive !== false) updates.isWeightAlarmActive = false;
-                if (val.weightAlarmSent) updates.weightAlarmSent = false;
+                updates.levelAlarmSent = true;
+            } else if (!shouldLevelAlarmBeActive && val.levelAlarmSent) {
+                updates.levelAlarmSent = false;
             }
             
-            if (val.IsON !== undefined && val.IsON !== 0 && val.IsON !== val.lastUpdatedNumber) {
-                const now = Date.now();
-                updates.lastSeen = now;
-                updates.lastUpdatedNumber = val.IsON;
-                checkConnection(now);
+            // Weight Alarm Notification
+            if (shouldWeightAlarmBeActive && !val.weightAlarmSent) {
+                const currentBin = bins.find(b => b.id === binId);
+                    if (currentBin) {
+                    sendWhatsappAlert({ 
+                        binName: currentBin.name,
+                        level: val.level,
+                        weight: val.weight,
+                        alertType: 'weight',
+                        });
+                }
+                updates.weightAlarmSent = true;
+            } else if (!shouldWeightAlarmBeActive && val.weightAlarmSent) {
+                updates.weightAlarmSent = false;
             }
 
             if (Object.keys(updates).length > 0) {
-                 update(dbRef, updates);
+                 await update(dbRef, updates);
             }
         }
 
@@ -191,13 +200,12 @@ export function useLoadcellData(binId: string) {
     });
     
     // Periodically check the connection status
-    const intervalId = setInterval(() => {
-         onValue(dbRef, (snapshot) => {
-            if(snapshot.exists()) {
-                const val: RawData = snapshot.val();
-                checkConnection(val.lastSeen ?? 0);
-            }
-         }, { onlyOnce: true });
+    const intervalId = setInterval(async () => {
+         const snapshot = await get(dbRef);
+         if(snapshot.exists()) {
+             const val: RawData = snapshot.val();
+             checkConnection(val.lastSeen ?? 0);
+         }
     }, 60000); // Check every minute
 
     return () => {

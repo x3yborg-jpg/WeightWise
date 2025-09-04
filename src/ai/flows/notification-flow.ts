@@ -1,43 +1,72 @@
 
 'use server';
 /**
- * @fileOverview A flow for sending WhatsApp notifications.
+ * @fileOverview A flow for sending WhatsApp notifications for bin alerts.
  *
- * - sendWhatsappMessage - A function that handles sending a WhatsApp message.
- * - WhatsappNotificationInput - The input type for the sendWhatsappMessage function.
+ * - sendWhatsappAlert - A function that handles sending a WhatsApp message.
+ * - WhatsappAlertInput - The input type for the sendWhatsappAlert function.
  */
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import fetch from 'node-fetch';
 
-export const WhatsappNotificationInputSchema = z.object({
-  message: z.string().describe('The content of the message to be sent.'),
+// --- IMPORTANT ---
+// You must enter the recipient's WhatsApp number here, including the country code.
+// For example: '911234567890' for an Indian number.
+const RECIPIENT_PHONE_NUMBER = 'YOUR_RECIPIENT_PHONE_NUMBER'; 
+
+const WhatsappAlertInputSchema = z.object({
+  binName: z.string().describe("The name of the bin that triggered the alert."),
+  level: z.number().describe("The current level of the bin."),
+  weight: z.number().describe("The current weight of the bin in grams."),
+  alertType: z.enum(['level', 'weight']).describe("The type of alert being triggered."),
 });
-export type WhatsappNotificationInput = z.infer<typeof WhatsappNotificationInputSchema>;
+type WhatsappAlertInput = z.infer<typeof WhatsappAlertInputSchema>;
 
 
-async function sendWhatsappMessage(input: WhatsappNotificationInput): Promise<{ success: boolean; messageId?: string, error?: string }> {
+const sendNotificationFlow = ai.defineFlow(
+  {
+    name: 'sendNotificationFlow',
+    inputSchema: WhatsappAlertInputSchema,
+    outputSchema: z.object({ success: z.boolean(), messageId: z.string().optional(), error: z.string().optional() }),
+  },
+  async (input) => {
     const {
         WHATSAPP_ACCESS_TOKEN,
         WHATSAPP_PHONE_NUMBER_ID,
-        WHATSAPP_RECIPIENT_NUMBER,
     } = process.env;
 
-    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID || !WHATSAPP_RECIPIENT_NUMBER) {
+    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) {
         const errorMessage = "WhatsApp API credentials are not configured in .env file.";
+        console.error(errorMessage);
+        return { success: false, error: errorMessage };
+    }
+    
+    if (RECIPIENT_PHONE_NUMBER === 'YOUR_RECIPIENT_PHONE_NUMBER' || !RECIPIENT_PHONE_NUMBER) {
+        const errorMessage = "Recipient phone number is not configured in src/ai/flows/notification-flow.ts.";
         console.error(errorMessage);
         return { success: false, error: errorMessage };
     }
 
     const url = `https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
+    // Construct a precise and clear message
+    let messageBody = '';
+    if (input.alertType === 'level') {
+        messageBody = `🚨 *High Level Alert* 🚨\n\n*Bin:* ${input.binName}\n*Level:* ${input.level.toFixed(1)}%`;
+    } else {
+        const weightInKg = (input.weight / 1000).toFixed(1);
+        messageBody = `⚖️ *High Weight Alert* ⚖️\n\n*Bin:* ${input.binName}\n*Weight:* ${weightInKg} kg`;
+    }
+
+
     const payload = {
         messaging_product: 'whatsapp',
-        to: WHATSAPP_RECIPIENT_NUMBER,
+        to: RECIPIENT_PHONE_NUMBER,
         type: 'text',
         text: {
             preview_url: false,
-            body: input.message,
+            body: messageBody,
         },
     };
 
@@ -66,16 +95,9 @@ async function sendWhatsappMessage(input: WhatsappNotificationInput): Promise<{ 
         console.error('Error sending WhatsApp message:', error);
         return { success: false, error: error.message || 'An unknown error occurred.' };
     }
-}
-
-
-export const sendNotificationFlow = ai.defineFlow(
-  {
-    name: 'sendNotificationFlow',
-    inputSchema: WhatsappNotificationInputSchema,
-    outputSchema: z.object({ success: z.boolean(), messageId: z.string().optional(), error: z.string().optional() }),
-  },
-  async (input) => {
-    return await sendWhatsappMessage(input);
   }
 );
+
+export async function sendWhatsappAlert(input: WhatsappAlertInput): Promise<{ success: boolean; messageId?: string; error?: string; }> {
+    return await sendNotificationFlow(input);
+}
