@@ -55,67 +55,41 @@ const sendNotificationFlow = ai.defineFlow(
     const url = `https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
     
     const isLevelAlert = input.alertType === 'level';
-    const headerText = isLevelAlert ? "High Level Alert" : "High Weight Alert";
-    const triggerText = isLevelAlert 
-        ? `Trigger: Level at ${input.level.toFixed(1)}%` 
-        : `Trigger: Weight at ${(input.weight / 1000).toFixed(1)} kg`;
-    const secondaryText = isLevelAlert
-        ? `Current Weight: ${(input.weight / 1000).toFixed(1)} kg`
-        : `Current Level: ${input.level.toFixed(1)}%`;
-    const statusText = `Device Status: ${input.isOnline ? 'Online' : 'Offline'}`;
-    const idText = `Bin ID: ${input.binId} | Device ID: ${input.deviceId}`;
+    
+    const templateName = isLevelAlert ? 'level_alert' : 'weight_alert';
+
+    const bodyParams = isLevelAlert
+     ? [
+        { type: 'text', text: input.binName },
+        { type: 'text', text: input.location },
+        { type: 'text', text: input.level.toFixed(1) },
+        { type: 'text', text: (input.weight / 1000).toFixed(1) },
+        { type: 'text', text: input.isOnline ? 'Online' : 'Offline' },
+        { type: 'text', text: `${input.binId} / ${input.deviceId}` },
+       ]
+     : [
+        { type: 'text', text: input.binName },
+        { type: 'text', text: input.location },
+        { type: 'text', text: (input.weight / 1000).toFixed(1) },
+        { type: 'text', text: input.level.toFixed(1) },
+        { type: 'text', text: input.isOnline ? 'Online' : 'Offline' },
+        { type: 'text', text: `${input.binId} / ${input.deviceId}` },
+     ];
 
 
-    // This payload uses a custom template named 'bin_alert'
-    // You MUST create this template in your WhatsApp Business Manager
-    // with the same number of parameters.
     const payload = {
         messaging_product: 'whatsapp',
         to: RECIPIENT_PHONE_NUMBER,
         type: 'template',
         template: {
-            name: 'bin_alert', // The name of your custom template
+            name: templateName, 
             language: {
-                code: 'en_US',
+                code: 'en', // Using 'en' is often more compatible than 'en_US'
             },
             components: [
                 {
-                    type: 'header',
-                    parameters: [
-                        {
-                            type: 'text',
-                            text: headerText,
-                        }
-                    ]
-                },
-                {
                     type: 'body',
-                    parameters: [
-                        {
-                            type: 'text',
-                            text: input.binName,
-                        },
-                        {
-                            type: 'text',
-                            text: input.location,
-                        },
-                        {
-                            type: 'text',
-                            text: triggerText,
-                        },
-                        {
-                            type: 'text',
-                            text: secondaryText,
-                        },
-                        {
-                            type: 'text',
-                            text: statusText,
-                        },
-                         {
-                            type: 'text',
-                            text: idText,
-                        }
-                    ]
+                    parameters: bodyParams
                 }
             ]
         },
