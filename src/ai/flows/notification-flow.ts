@@ -13,7 +13,7 @@ import fetch from 'node-fetch';
 // --- IMPORTANT ---
 // You must enter the recipient's WhatsApp number here, including the country code.
 // For example: '911234567890' for an Indian number.
-const RECIPIENT_PHONE_NUMBER = 'YOUR_RECIPIENT_PHONE_NUMBER'; 
+const RECIPIENT_PHONE_NUMBER = '918075643194'; 
 
 const WhatsappAlertInputSchema = z.object({
   binName: z.string().describe("The name of the bin that triggered the alert."),
@@ -54,28 +54,16 @@ const sendNotificationFlow = ai.defineFlow(
 
     const url = `https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
-    let alertTitle = '';
-    let alertDetails = '';
-    const weightInKg = (input.weight / 1000).toFixed(1);
-    const deviceStatus = input.isOnline ? 'Online' : 'Offline';
-
-    if (input.alertType === 'level') {
-        alertTitle = `🚨 *High Level Alert* 🚨`;
-        alertDetails = `*Trigger:* Level at ${input.level.toFixed(1)}%\n*Current Weight:* ${weightInKg} kg`;
-    } else {
-        alertTitle = `⚖️ *High Weight Alert* ⚖️`;
-        alertDetails = `*Trigger:* Weight at ${weightInKg} kg\n*Current Level:* ${input.level.toFixed(1)}%`;
-    }
-
-    const messageBody = `${alertTitle}\n\n*Bin:* ${input.binName}\n*Location:* ${input.location}\n\n${alertDetails}\n\n---\n*Bin ID:* ${input.binId}\n*Device ID:* ${input.deviceId}\n*Status:* ${deviceStatus}`;
-
+    // As per the user's curl command, we are now sending a template message.
     const payload = {
         messaging_product: 'whatsapp',
         to: RECIPIENT_PHONE_NUMBER,
-        type: 'text',
-        text: {
-            preview_url: false,
-            body: messageBody,
+        type: 'template',
+        template: {
+            name: 'hello_world',
+            language: {
+                code: 'en_US',
+            },
         },
     };
 
