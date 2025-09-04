@@ -61,13 +61,13 @@ const sendNotificationFlow = ai.defineFlow(
 
     if (input.alertType === 'level') {
         alertTitle = `🚨 *High Level Alert* 🚨`;
-        alertDetails = `*Level:* ${input.level.toFixed(1)}%`;
+        alertDetails = `*Trigger:* Level at ${input.level.toFixed(1)}%\n*Current Weight:* ${weightInKg} kg`;
     } else {
         alertTitle = `⚖️ *High Weight Alert* ⚖️`;
-        alertDetails = `*Weight:* ${weightInKg} kg`;
+        alertDetails = `*Trigger:* Weight at ${weightInKg} kg\n*Current Level:* ${input.level.toFixed(1)}%`;
     }
 
-    const messageBody = `${alertTitle}\n\n*Bin:* ${input.binName}\n*Location:* ${input.location}\n\n*Trigger:* ${alertDetails}\n\n---\n*Bin ID:* ${input.binId}\n*Device ID:* ${input.deviceId}\n*Status:* ${deviceStatus}`;
+    const messageBody = `${alertTitle}\n\n*Bin:* ${input.binName}\n*Location:* ${input.location}\n\n${alertDetails}\n\n---\n*Bin ID:* ${input.binId}\n*Device ID:* ${input.deviceId}\n*Status:* ${deviceStatus}`;
 
     const payload = {
         messaging_product: 'whatsapp',
