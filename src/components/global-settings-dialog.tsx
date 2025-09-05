@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/select"
 import { Slider } from './ui/slider';
 import { MAX_WEIGHT_G } from '@/hooks/use-loadcell-data';
-import { sendWhatsAppMessage } from '@/ai/flows/notification-flow';
 import { Separator } from './ui/separator';
 
 interface GlobalSettingsDialogProps {
@@ -75,20 +74,33 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
 
   const handleTestMessage = async () => {
     setIsTestSending(true);
-    const result = await sendWhatsAppMessage();
-    if(result.success) {
-        toast({
-            title: "Test Message Sent",
-            description: "Check your WhatsApp for a 'hello_world' message."
-        });
-    } else {
+    try {
+      const response = await fetch('/api/send-test-message', {
+        method: 'POST',
+      });
+      const result = await response.json();
+
+      if (response.ok) {
+          toast({
+              title: "Test Message Sent",
+              description: result.message || "Check your WhatsApp for a 'hello_world' message."
+          });
+      } else {
+          toast({
+              title: "Test Message Failed",
+              description: result.message || "Could not send test message. Check logs.",
+              variant: 'destructive',
+          });
+      }
+    } catch (error) {
         toast({
             title: "Test Message Failed",
-            description: result.message || "Could not send test message. Check logs.",
+            description: "An unexpected error occurred. Check the browser console and server logs.",
             variant: 'destructive',
-        })
+        });
+    } finally {
+        setIsTestSending(false);
     }
-    setIsTestSending(false);
   }
   
   return (
