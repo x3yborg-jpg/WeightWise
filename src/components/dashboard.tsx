@@ -8,7 +8,7 @@ import { LevelGauge } from '@/components/level-gauge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, WifiOff, Power, Waves, LineChart, Maximize, Siren, Weight, MessageSquareText } from 'lucide-react';
+import { AlertTriangle, Wifi, WifiOff, Power, Waves, LineChart, Maximize, Siren, Weight, MessageSquareText } from 'lucide-react';
 import { WeightChart } from './weight-chart';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -308,7 +308,7 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
              <div className="flex items-center gap-2">
                 {isConnected ? (
                     <div className="flex items-center gap-2 text-green-400">
-                        <Power className="h-4 w-4 animate-pulse" />
+                        <Wifi className="h-4 w-4 animate-pulse" />
                         <span>Device Online</span>
                     </div>
                 ) : (
@@ -323,5 +323,3 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
     </>
   );
 }
-
-    

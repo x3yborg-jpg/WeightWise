@@ -17,8 +17,7 @@ export interface LoadCellData {
   weight: number;
   level: number;
   timestamp: number;
-  isLevelAlarmActive?: boolean;
-  isWeightAlarmActive?: boolean;
+  isAlarmActive?: boolean;
   lastSeen?: number;
 }
 
@@ -27,8 +26,7 @@ export interface RawData {
     weight: number;
     level: number;
     IsON?: number;
-    isLevelAlarmActive?: boolean;
-    isWeightAlarmActive?: boolean;
+    isAlarmActive?: boolean;
     levelAlarmSent?: boolean;
     weightAlarmSent?: boolean;
     lastSeen?: number;
@@ -49,8 +47,7 @@ const generateSampleData = (lastData?: LoadCellData): LoadCellData => {
     weight: Math.max(0, Math.min(MAX_WEIGHT_G, newWeight)),
     level: lastLevel,
     timestamp: Date.now(),
-    isLevelAlarmActive: false,
-    isWeightAlarmActive: false,
+    isAlarmActive: false,
     lastSeen: Date.now(),
   };
 };
@@ -74,22 +71,15 @@ export function useLoadcellData(binId: string) {
     if (!currentBin || settingsLoading) return;
     
     const dbRef = ref(database, binId);
-    const snapshot = await get(dbRef);
-    const dbData = snapshot.val();
-
+    
     const { warningThresholdLevel, warningThresholdWeight } = settings;
     const { level, weight } = data;
-    const updates: Partial<RawData> = {};
 
     const shouldLevelAlarmBeActive = level >= warningThresholdLevel;
     const shouldWeightAlarmBeActive = weight >= warningThresholdWeight;
 
-    // Set UI state immediately
-    setIsLevelAlarmActive(shouldLevelAlarmBeActive);
-    setIsWeightAlarmActive(shouldWeightAlarmBeActive);
-    
     // Check and trigger level alarm
-    if (shouldLevelAlarmBeActive && !dbData.levelAlarmSent) {
+    if (shouldLevelAlarmBeActive) {
       await notificationFlow({
         binId: currentBin.id,
         binName: currentBin.name,
@@ -100,11 +90,10 @@ export function useLoadcellData(binId: string) {
         weight,
         alertType: 'level'
       });
-      // The flow will set levelAlarmSent to true
     }
     
     // Check and trigger weight alarm
-    if (shouldWeightAlarmBeActive && !dbData.weightAlarmSent) {
+    if (shouldWeightAlarmBeActive) {
        await notificationFlow({
         binId: currentBin.id,
         binName: currentBin.name,
@@ -115,24 +104,28 @@ export function useLoadcellData(binId: string) {
         weight,
         alertType: 'weight'
       });
-      // The flow will set weightAlarmSent to true
-    }
-
-    // This part is crucial: it resets the sent flag when the condition is no longer met.
-    if (!shouldLevelAlarmBeActive && dbData.levelAlarmSent) {
-      updates.levelAlarmSent = false;
-    }
-    if (!shouldWeightAlarmBeActive && dbData.weightAlarmSent) {
-      updates.weightAlarmSent = false;
     }
     
-    // Also, update the active flags in the DB so other components can see it
-    updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
-    updates.isWeightAlarmActive = shouldWeightAlarmBeActive;
-
-    if (Object.keys(updates).length > 0) {
-      await update(dbRef, updates);
+    const isAnyAlarmActive = shouldLevelAlarmBeActive || shouldWeightAlarmBeActive;
+    
+    // Update the isAlarmActive flag in the database
+    const snapshot = await get(dbRef);
+    if (snapshot.exists()) {
+        const currentDbData = snapshot.val();
+        if (currentDbData.isAlarmActive !== isAnyAlarmActive) {
+             await update(dbRef, { isAlarmActive: isAnyAlarmActive });
+        }
     }
+
+
+    // This part is crucial: it resets the sent flag when the condition is no longer met.
+    if (!shouldLevelAlarmBeActive && data.levelAlarmSent) {
+      await update(dbRef, { levelAlarmSent: false });
+    }
+    if (!shouldWeightAlarmBeActive && data.weightAlarmSent) {
+      await update(dbRef, { weightAlarmSent: false });
+    }
+    
   }, [bins, settings, settingsLoading, notificationFlow]);
 
 
@@ -167,8 +160,12 @@ export function useLoadcellData(binId: string) {
         const val: RawData = snapshot.val();
         
         // Update local state from Firebase for the UI to react
-        setIsLevelAlarmActive(val.isLevelAlarmActive ?? false);
-        setIsWeightAlarmActive(val.isWeightAlarmActive ?? false);
+        const { warningThresholdLevel, warningThresholdWeight } = settings;
+        const levelAlarm = val.level >= warningThresholdLevel;
+        const weightAlarm = val.weight >= warningThresholdWeight;
+        
+        setIsLevelAlarmActive(levelAlarm);
+        setIsWeightAlarmActive(weightAlarm);
         
         if (lastIsONRef.current === undefined) {
           lastIsONRef.current = val.IsON;
@@ -179,8 +176,7 @@ export function useLoadcellData(binId: string) {
                 weight: val.weight,
                 level: val.level,
                 timestamp: Date.now(),
-                isLevelAlarmActive: val.isLevelAlarmActive,
-                isWeightAlarmActive: val.isWeightAlarmActive,
+                isAlarmActive: val.isAlarmActive,
                 lastSeen: val.lastSeen
             };
 
@@ -231,7 +227,7 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       clearInterval(intervalId);
     };
-  }, [binId, settingsLoading, checkConnection, handleAlerts]);
+  }, [binId, settingsLoading, settings.warningThresholdLevel, settings.warningThresholdWeight, checkConnection, handleAlerts]);
 
   // Demo mode effect
   useEffect(() => {
@@ -256,8 +252,7 @@ export function useLoadcellData(binId: string) {
           
           const newHistory = [...prevHistory, { 
               ...newPoint, 
-              isLevelAlarmActive: shouldLevelAlarmBeActive,
-              isWeightAlarmActive: shouldWeightAlarmBeActive,
+              isAlarmActive: shouldLevelAlarmBeActive || shouldWeightAlarmBeActive,
               lastSeen: Date.now() 
             }];
            return newHistory.length > MAX_DATA_POINTS 
