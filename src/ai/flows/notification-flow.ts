@@ -16,7 +16,7 @@ const BinDataAuditorInputSchema = z.object({
 type BinDataAuditorInput = z.infer<typeof BinDataAuditorInputSchema>;
 
 
-async function sendWhatsAppMessage(binConfig: any) {
+export async function sendWhatsAppMessage(binConfig?: any) {
     const { WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_RECIPIENT_NUMBERS } = process.env;
 
     if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID || !WHATSAPP_RECIPIENT_NUMBERS) {

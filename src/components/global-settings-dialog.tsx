@@ -14,7 +14,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Loader2, Settings, Clock, Percent, Weight } from 'lucide-react';
+import { Loader2, Settings, Clock, Percent, Weight, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import {
@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/select"
 import { Slider } from './ui/slider';
 import { MAX_WEIGHT_G } from '@/hooks/use-loadcell-data';
+import { sendWhatsAppMessage } from '@/ai/flows/notification-flow';
+import { Separator } from './ui/separator';
 
 interface GlobalSettingsDialogProps {
   children: React.ReactNode;
@@ -46,6 +48,7 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
   const [notificationInterval, setNotificationInterval] = useState(settings.notificationInterval);
   const [warningThresholdLevel, setWarningThresholdLevel] = useState(settings.warningThresholdLevel);
   const [warningThresholdWeight, setWarningThresholdWeight] = useState(settings.warningThresholdWeight);
+  const [isTestSending, setIsTestSending] = useState(false);
 
 
   useEffect(() => {
@@ -69,6 +72,24 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
   const handleDialogStateChange = (open: boolean) => {
     setIsDialogOpen(open);
   };
+
+  const handleTestMessage = async () => {
+    setIsTestSending(true);
+    const result = await sendWhatsAppMessage();
+    if(result.success) {
+        toast({
+            title: "Test Message Sent",
+            description: "Check your WhatsApp for a 'hello_world' message."
+        });
+    } else {
+        toast({
+            title: "Test Message Failed",
+            description: result.message || "Could not send test message. Check logs.",
+            variant: 'destructive',
+        })
+    }
+    setIsTestSending(false);
+  }
   
   return (
     <Dialog open={isDialogOpen} onOpenChange={handleDialogStateChange}>
@@ -148,6 +169,18 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
             </Select>
             <p className="text-xs text-muted-foreground">How often to repeat dashboard warnings for bins with high levels or weights.</p>
           </div>
+          <Separator />
+           <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                WhatsApp Notification Test
+            </Label>
+             <p className="text-xs text-muted-foreground">Click the button to send a test message to all configured recipients. This uses the 'hello_world' template.</p>
+             <Button variant="secondary" onClick={handleTestMessage} disabled={isTestSending}>
+                 {isTestSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                 Send Test Message
+             </Button>
+            </div>
         </div>
         <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
@@ -160,5 +193,3 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
     </Dialog>
   );
 }
-
-    
