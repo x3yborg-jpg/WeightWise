@@ -5,8 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ref, onValue, off, update, get } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { useSettings } from '@/context/settings-context';
-import { sendWhatsappAlert } from '@/ai/flows/notification-flow';
-import { useBins } from '@/context/bin-context';
+import { binDataAuditor } from '@/ai/flows/notification-flow';
 
 export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
@@ -65,63 +64,8 @@ export function useLoadcellData(binId: string) {
   const [isWeightAlarmActive, setIsWeightAlarmActive] = useState(false);
   
   const { settings, loading: settingsLoading } = useSettings();
-  const { bins } = useBins();
   const lastIsONRef = useRef<number | undefined>(undefined);
-  const notificationFlow = sendWhatsappAlert;
-
-  const handleAlerts = useCallback(async (data: RawData, binId: string) => {
-    const currentBin = bins.find(b => b.id === binId);
-    if (!currentBin || settingsLoading) return;
-    
-    const { warningThresholdLevel, warningThresholdWeight } = settings;
-    const { level, weight, levelAlarmSent, weightAlarmSent } = data;
-
-    const shouldLevelAlarmBeActive = level >= warningThresholdLevel;
-    const shouldWeightAlarmBeActive = weight >= warningThresholdWeight;
-
-    // Trigger level alert if threshold is crossed and no alert has been sent
-    if (shouldLevelAlarmBeActive && !levelAlarmSent) {
-      await notificationFlow({
-        binId: currentBin.id,
-        binName: currentBin.name,
-        location: currentBin.location,
-        deviceId: currentBin.deviceId,
-        isOnline: true,
-        level,
-        weight,
-        alertType: 'level'
-      });
-       await update(ref(database, binId), { levelAlarmSent: true });
-    }
-    
-    // Trigger weight alarm if threshold is crossed and no alert has been sent
-    if (shouldWeightAlarmBeActive && !weightAlarmSent) {
-       await notificationFlow({
-        binId: currentBin.id,
-        binName: currentBin.name,
-        location: currentBin.location,
-        deviceId: currentBin.deviceId,
-        isOnline: true,
-        level,
-        weight,
-        alertType: 'weight'
-      });
-       await update(ref(database, binId), { weightAlarmSent: true });
-    }
-
-    // Reset level alarm flag if level drops below threshold
-    if (!shouldLevelAlarmBeActive && levelAlarmSent) {
-      await update(ref(database, binId), { levelAlarmSent: false });
-    }
-    
-    // Reset weight alarm flag if weight drops below threshold
-    if (!shouldWeightAlarmBeActive && weightAlarmSent) {
-      await update(ref(database, binId), { weightAlarmSent: false });
-    }
-    
-  }, [bins, settings, settingsLoading, notificationFlow]);
-
-
+  
   const checkConnection = useCallback((lastSeenTime: number) => {
       const now = Date.now();
       if (now - lastSeenTime < HEARTBEAT_TIMEOUT) {
@@ -160,12 +104,16 @@ export function useLoadcellData(binId: string) {
         setIsLevelAlarmActive(levelAlarm);
         setIsWeightAlarmActive(weightAlarm);
         
-        // Update the database if the alarm state has changed
+        // Update the database with the current alarm state for other components to use
+        const updates: any = {};
         if (val.isLevelAlarmActive !== levelAlarm) {
-            await update(dbRef, { isLevelAlarmActive: levelAlarm });
+            updates.isLevelAlarmActive = levelAlarm;
         }
         if (val.isWeightAlarmActive !== weightAlarm) {
-            await update(dbRef, { isWeightAlarmActive: weightAlarm });
+            updates.isWeightAlarmActive = weightAlarm;
+        }
+        if (Object.keys(updates).length > 0) {
+            await update(dbRef, updates);
         }
 
         if (lastIsONRef.current === undefined) {
@@ -191,12 +139,18 @@ export function useLoadcellData(binId: string) {
             
             checkConnection(val.lastSeen ?? 0);
             
+            // Check for heartbeat change and update lastSeen
             if (val.IsON !== undefined && val.IsON !== lastIsONRef.current) {
               await update(dbRef, { lastSeen: Date.now() });
               lastIsONRef.current = val.IsON;
             }
             
-            await handleAlerts(val, binId);
+            // Trigger the backend auditor flow to handle alerts
+            await binDataAuditor({
+                binId,
+                currentLevel: val.level,
+                currentWeight: val.weight,
+            });
         }
 
       } else {
@@ -227,7 +181,7 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       clearInterval(intervalId);
     };
-  }, [binId, settingsLoading, settings.warningThresholdLevel, settings.warningThresholdWeight, checkConnection, handleAlerts]);
+  }, [binId, settingsLoading, settings.warningThresholdLevel, settings.warningThresholdWeight, checkConnection]);
 
   // Demo mode effect
   useEffect(() => {
