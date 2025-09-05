@@ -8,7 +8,6 @@ import { useSettings } from '@/context/settings-context';
 import { sendWhatsappAlert } from '@/ai/flows/notification-flow';
 import { useBins } from '@/context/bin-context';
 
-
 export const MAX_DATA_POINTS = 30; // Keep the last 30 data points for the chart
 const DEMO_DATA_INTERVAL = 5000; // 5 seconds for demo data
 export const MAX_WEIGHT_G = 40000; // 40kg in grams
@@ -68,6 +67,69 @@ export function useLoadcellData(binId: string) {
   const { settings, loading: settingsLoading } = useSettings();
   const { bins } = useBins();
   const lastIsONRef = useRef<number | undefined>(undefined);
+  const notificationFlow = sendWhatsappAlert;
+
+  const handleAlerts = useCallback(async (data: RawData, binId: string) => {
+    const currentBin = bins.find(b => b.id === binId);
+    if (!currentBin || settingsLoading) return;
+
+    const { warningThresholdLevel, warningThresholdWeight } = settings;
+    const { level, weight, levelAlarmSent, weightAlarmSent } = data;
+    const updates: Partial<RawData> = {};
+
+    // Determine if alarms should be active
+    const shouldLevelAlarmBeActive = level > warningThresholdLevel;
+    const shouldWeightAlarmBeActive = weight > warningThresholdWeight;
+
+    if(shouldLevelAlarmBeActive && !levelAlarmSent) {
+      await notificationFlow({
+        binId: currentBin.id,
+        binName: currentBin.name,
+        location: currentBin.location,
+        deviceId: currentBin.deviceId,
+        isOnline: true, // This logic is now server-side, assume online for intent
+        level,
+        weight,
+        alertType: 'level'
+      });
+    }
+
+    if(shouldWeightAlarmBeActive && !weightAlarmSent) {
+       await notificationFlow({
+        binId: currentBin.id,
+        binName: currentBin.name,
+        location: currentBin.location,
+        deviceId: currentBin.deviceId,
+        isOnline: true,
+        level,
+        weight,
+        alertType: 'weight'
+      });
+    }
+
+    // This part is now handled by the Cloud Function, but we keep the client-side state for the UI
+    setIsLevelAlarmActive(shouldLevelAlarmBeActive);
+    setIsWeightAlarmActive(shouldWeightAlarmBeActive);
+    
+    // Reset flags if conditions are no longer met. This will be officially handled by the Cloud Function,
+    // but the client can anticipate it.
+    if (!shouldLevelAlarmBeActive && levelAlarmSent) {
+      updates.levelAlarmSent = false;
+    }
+    if (!shouldWeightAlarmBeActive && weightAlarmSent) {
+      updates.weightAlarmSent = false;
+    }
+
+    // The cloud function will be the source of truth for alarm flags, but the client hook
+    // will determine if the visual alarm in the UI should be shown.
+    updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
+    updates.isWeightAlarmActive = shouldWeightAlarmBeActive;
+
+    if (Object.keys(updates).length > 0) {
+      await update(ref(database, binId), updates);
+    }
+  }, [bins, settings, settingsLoading, notificationFlow]);
+
 
   const checkConnection = useCallback((lastSeenTime: number) => {
       const now = Date.now();
@@ -103,7 +165,6 @@ export function useLoadcellData(binId: string) {
         setIsLevelAlarmActive(val.isLevelAlarmActive ?? false);
         setIsWeightAlarmActive(val.isWeightAlarmActive ?? false);
         
-        // Initialize the ref with the first value read from the database
         if (lastIsONRef.current === undefined) {
           lastIsONRef.current = val.IsON;
         }
@@ -125,76 +186,21 @@ export function useLoadcellData(binId: string) {
                         : newHistory;
             });
             
-            const updates: Partial<RawData> = {};
-            
-            // Check connection status based on the last seen time
             checkConnection(val.lastSeen ?? 0);
             
             // Only update lastSeen if the IsON heartbeat value has changed
             if (val.IsON !== undefined && val.IsON !== lastIsONRef.current) {
-              updates.lastSeen = Date.now();
-              lastIsONRef.current = val.IsON; // Update the ref with the new value
+              await update(dbRef, { lastSeen: Date.now() });
+              lastIsONRef.current = val.IsON;
             }
-
-            const shouldLevelAlarmBeActive = val.level > settings.warningThresholdLevel;
-            const shouldWeightAlarmBeActive = val.weight > settings.warningThresholdWeight;
-
-            if (shouldLevelAlarmBeActive !== val.isLevelAlarmActive) {
-                updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
-            }
-            if (shouldWeightAlarmBeActive !== val.isWeightAlarmActive) {
-                updates.isWeightAlarmActive = shouldWeightAlarmBeActive;
-            }
-
-            // --- NOTIFICATION LOGIC ---
-            const currentBin = bins.find(b => b.id === binId);
-            const isDeviceOnline = val.lastSeen ? (Date.now() - val.lastSeen < HEARTBEAT_TIMEOUT) : isConnected;
-
-            if (currentBin) {
-                // Level Alarm Notification
-                if (shouldLevelAlarmBeActive && !val.levelAlarmSent) {
-                    sendWhatsappAlert({ 
-                        binName: currentBin.name,
-                        location: currentBin.location,
-                        binId: currentBin.id,
-                        deviceId: currentBin.deviceId,
-                        isOnline: isDeviceOnline,
-                        level: val.level,
-                        weight: val.weight,
-                        alertType: 'level',
-                     });
-                    updates.levelAlarmSent = true;
-                } else if (!shouldLevelAlarmBeActive && val.levelAlarmSent) {
-                    updates.levelAlarmSent = false;
-                }
-                
-                // Weight Alarm Notification
-                if (shouldWeightAlarmBeActive && !val.weightAlarmSent) {
-                    sendWhatsappAlert({ 
-                        binName: currentBin.name,
-                        location: currentBin.location,
-                        binId: currentBin.id,
-                        deviceId: currentBin.deviceId,
-                        isOnline: isDeviceOnline,
-                        level: val.level,
-                        weight: val.weight,
-                        alertType: 'weight',
-                        });
-                    updates.weightAlarmSent = true;
-                } else if (!shouldWeightAlarmBeActive && val.weightAlarmSent) {
-                    updates.weightAlarmSent = false;
-                }
-            }
-
-
-            if (Object.keys(updates).length > 0) {
-                 await update(dbRef, updates);
-            }
+            
+            // This is now handled by the cloud function primarily
+            // The client UI will reflect the state set by the function
         }
 
       } else {
          setError(`No data found for this bin. Displaying demo data.`);
-         setIsConnected(true); // Demo is always "connected"
+         setIsConnected(true);
          setIsDemoMode(true);
       }
     }, (err) => {
@@ -208,20 +214,19 @@ export function useLoadcellData(binId: string) {
       setLoading(false);
     });
     
-    // Periodically check the connection status
     const intervalId = setInterval(async () => {
          const snapshot = await get(dbRef);
          if(snapshot.exists()) {
              const val: RawData = snapshot.val();
              checkConnection(val.lastSeen ?? 0);
          }
-    }, 60000); // Check every minute
+    }, 60000);
 
     return () => {
       off(dbRef, 'value', listener);
       clearInterval(intervalId);
     };
-  }, [binId, settingsLoading, settings.warningThresholdLevel, settings.warningThresholdWeight, checkConnection, bins]);
+  }, [binId, settingsLoading, checkConnection]);
 
   // Demo mode effect
   useEffect(() => {
@@ -273,3 +278,5 @@ export function useLoadcellData(binId: string) {
       isWeightAlarmActive 
     };
 }
+
+    
