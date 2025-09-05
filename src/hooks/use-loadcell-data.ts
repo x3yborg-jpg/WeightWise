@@ -72,29 +72,39 @@ export function useLoadcellData(binId: string) {
   const handleAlerts = useCallback(async (data: RawData, binId: string) => {
     const currentBin = bins.find(b => b.id === binId);
     if (!currentBin || settingsLoading) return;
+    
+    const dbRef = ref(database, binId);
+    const snapshot = await get(dbRef);
+    const dbData = snapshot.val();
 
     const { warningThresholdLevel, warningThresholdWeight } = settings;
-    const { level, weight, levelAlarmSent, weightAlarmSent } = data;
+    const { level, weight } = data;
     const updates: Partial<RawData> = {};
 
-    // Determine if alarms should be active
-    const shouldLevelAlarmBeActive = level > warningThresholdLevel;
-    const shouldWeightAlarmBeActive = weight > warningThresholdWeight;
+    const shouldLevelAlarmBeActive = level >= warningThresholdLevel;
+    const shouldWeightAlarmBeActive = weight >= warningThresholdWeight;
 
-    if(shouldLevelAlarmBeActive && !levelAlarmSent) {
+    // Set UI state immediately
+    setIsLevelAlarmActive(shouldLevelAlarmBeActive);
+    setIsWeightAlarmActive(shouldWeightAlarmBeActive);
+    
+    // Check and trigger level alarm
+    if (shouldLevelAlarmBeActive && !dbData.levelAlarmSent) {
       await notificationFlow({
         binId: currentBin.id,
         binName: currentBin.name,
         location: currentBin.location,
         deviceId: currentBin.deviceId,
-        isOnline: true, // This logic is now server-side, assume online for intent
+        isOnline: true,
         level,
         weight,
         alertType: 'level'
       });
+      // The flow will set levelAlarmSent to true
     }
-
-    if(shouldWeightAlarmBeActive && !weightAlarmSent) {
+    
+    // Check and trigger weight alarm
+    if (shouldWeightAlarmBeActive && !dbData.weightAlarmSent) {
        await notificationFlow({
         binId: currentBin.id,
         binName: currentBin.name,
@@ -105,28 +115,23 @@ export function useLoadcellData(binId: string) {
         weight,
         alertType: 'weight'
       });
+      // The flow will set weightAlarmSent to true
     }
 
-    // This part is now handled by the Cloud Function, but we keep the client-side state for the UI
-    setIsLevelAlarmActive(shouldLevelAlarmBeActive);
-    setIsWeightAlarmActive(shouldWeightAlarmBeActive);
-    
-    // Reset flags if conditions are no longer met. This will be officially handled by the Cloud Function,
-    // but the client can anticipate it.
-    if (!shouldLevelAlarmBeActive && levelAlarmSent) {
+    // This part is crucial: it resets the sent flag when the condition is no longer met.
+    if (!shouldLevelAlarmBeActive && dbData.levelAlarmSent) {
       updates.levelAlarmSent = false;
     }
-    if (!shouldWeightAlarmBeActive && weightAlarmSent) {
+    if (!shouldWeightAlarmBeActive && dbData.weightAlarmSent) {
       updates.weightAlarmSent = false;
     }
-
-    // The cloud function will be the source of truth for alarm flags, but the client hook
-    // will determine if the visual alarm in the UI should be shown.
+    
+    // Also, update the active flags in the DB so other components can see it
     updates.isLevelAlarmActive = shouldLevelAlarmBeActive;
     updates.isWeightAlarmActive = shouldWeightAlarmBeActive;
 
     if (Object.keys(updates).length > 0) {
-      await update(ref(database, binId), updates);
+      await update(dbRef, updates);
     }
   }, [bins, settings, settingsLoading, notificationFlow]);
 
@@ -194,8 +199,8 @@ export function useLoadcellData(binId: string) {
               lastIsONRef.current = val.IsON;
             }
             
-            // This is now handled by the cloud function primarily
-            // The client UI will reflect the state set by the function
+            // Handle alerts based on the new data
+            await handleAlerts(val, binId);
         }
 
       } else {
@@ -226,7 +231,7 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       clearInterval(intervalId);
     };
-  }, [binId, settingsLoading, checkConnection]);
+  }, [binId, settingsLoading, checkConnection, handleAlerts]);
 
   // Demo mode effect
   useEffect(() => {
@@ -278,5 +283,3 @@ export function useLoadcellData(binId: string) {
       isWeightAlarmActive 
     };
 }
-
-    
