@@ -16,69 +16,72 @@ const BinDataAuditorInputSchema = z.object({
 type BinDataAuditorInput = z.infer<typeof BinDataAuditorInputSchema>;
 
 
-export async function sendWhatsAppMessage(binConfig?: any) {
-    const { WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_RECIPIENT_NUMBERS } = process.env;
+export async function sendWhatsAppMessage(templateName: 'level_alert' | 'weight_alert', recipient: string, params: Record<string, string>) {
+    const { WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID } = process.env;
 
-    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID || !WHATSAPP_RECIPIENT_NUMBERS) {
+    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) {
       const errorMessage = "WhatsApp API credentials are not fully configured in .env file.";
       console.error(errorMessage);
       return { success: false, message: errorMessage };
     }
     
-    const recipients = WHATSAPP_RECIPIENT_NUMBERS.split(',').map(num => num.trim()).filter(Boolean);
-    if (recipients.length === 0) {
-      const errorMessage = "No recipient phone numbers configured in .env file.";
-      console.error(errorMessage);
-      return { success: false, message: errorMessage };
-    }
-
     const url = `https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
     
-    let allSuccessful = true;
-    for (const recipient of recipients) {
-        const payload = {
-            messaging_product: 'whatsapp',
-            to: recipient,
-            type: 'template',
-            template: {
-                name: 'hello_world', 
-                language: { code: 'en_US' },
-            },
-        };
+    const payload = {
+        messaging_product: 'whatsapp',
+        to: recipient,
+        type: 'template',
+        template: {
+            name: templateName, 
+            language: { code: 'en_US' },
+            components: [
+                {
+                    type: 'body',
+                    parameters: [
+                        { type: 'text', text: params.bin_name || 'N/A' },
+                        { type: 'text', text: params.level || 'N/A' },
+                        { type: 'text', text: params.weight || 'N/A' },
+                        { type: 'text', text: params.status || 'Online' },
+                        { type: 'text', text: params.location || 'N/A' },
+                    ]
+                }
+            ]
+        },
+    };
 
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload),
-            });
-            const responseData: any = await response.json();
-            if (!response.ok) {
-                allSuccessful = false;
-                console.error(`Failed to send WhatsApp message to ${recipient}:`, responseData.error?.message || `HTTP error! Status: ${response.status}`);
-            } else {
-                console.log(`Successfully sent WhatsApp message to ${recipient}:`, responseData.messages[0]?.id);
-            }
-        } catch (error: any) {
-            allSuccessful = false;
-            console.error(`Error sending WhatsApp message to ${recipient}:`, error.message || 'An unknown error occurred.');
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+        const responseData: any = await response.json();
+        if (!response.ok) {
+            console.error(`Failed to send WhatsApp message to ${recipient}:`, responseData.error?.message || `HTTP error! Status: ${response.status}`);
+             return { success: false, message: responseData.error?.message || `HTTP error! Status: ${response.status}` };
+        } else {
+            console.log(`Successfully sent WhatsApp message to ${recipient}:`, responseData.messages[0]?.id);
+             return { success: true, message: `Alert sent to ${recipient}.` };
         }
-    }
-    
-    if (allSuccessful) {
-        return { success: true, message: `Alert sent to ${recipients.length} recipient(s).` };
-    } else {
-        return { success: false, message: 'One or more messages failed to send. Check logs.' };
+    } catch (error: any) {
+        console.error(`Error sending WhatsApp message to ${recipient}:`, error.message || 'An unknown error occurred.');
+         return { success: false, message: error.message || 'An unknown error occurred.' };
     }
 }
 
 
 export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ status: string }> {
     const { binId } = input;
+    const { WHATSAPP_RECIPIENT_NUMBERS } = process.env;
     
+    if (!WHATSAPP_RECIPIENT_NUMBERS) {
+      return { status: "WhatsApp recipient numbers are not configured." };
+    }
+    const recipients = WHATSAPP_RECIPIENT_NUMBERS.split(',').map(num => num.trim()).filter(Boolean);
+
     // 1. Get bin configuration and global settings from Firebase
     const binConfigRef = ref(database, `bins-config/${binId}`);
     const binSettingsRef = ref(database, `global-settings`);
@@ -99,7 +102,7 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     const binData = binDataSnap.val();
 
     const { warningThresholdLevel, warningThresholdWeight } = globalSettings;
-    const { level, weight, levelAlarmSent, weightAlarmSent } = binData;
+    const { level, weight, levelAlarmSent, weightAlarmSent, lastSeen } = binData;
 
     let updates: any = {};
     let alertType: 'level' | 'weight' | null = null;
@@ -123,10 +126,24 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     
     // 4. Prepare and Send Alert if needed
     if (alertType) {
-        const sendResult = await sendWhatsAppMessage(binConfig);
+        const params = {
+            bin_name: binConfig.name,
+            level: `${level.toFixed(1)}`,
+            weight: `${(weight / 1000).toFixed(1)}`,
+            status: Date.now() - (lastSeen || 0) < 1800000 ? 'Online' : 'Offline',
+            location: binConfig.location
+        };
+
+        let allSuccessful = true;
+        for (const recipient of recipients) {
+            const sendResult = await sendWhatsAppMessage(alertType, recipient, params);
+            if (!sendResult.success) {
+                allSuccessful = false;
+            }
+        }
         
         // Only set the flag and log if the notification was successful
-        if (sendResult.success) {
+        if (allSuccessful) {
             updates[`${alertType}AlarmSent`] = true;
             const logRef = ref(database, `alerts-log/${binId}`);
             const message = alertType === 'level' 

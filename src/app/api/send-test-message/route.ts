@@ -29,8 +29,20 @@ export async function POST(request: Request) {
             to: recipient,
             type: 'template',
             template: {
-                name: 'hello_world', 
+                name: 'level_alert', 
                 language: { code: 'en_US' },
+                 components: [
+                    {
+                        type: 'body',
+                        parameters: [
+                            { type: 'text', text: "Test Bin" },
+                            { type: 'text', text: "95" },
+                            { type: 'text', text: "38.5" },
+                            { type: 'text', text: "Online" },
+                            { type: 'text', text: "Test Location" }
+                        ]
+                    }
+                ]
             },
         };
 
