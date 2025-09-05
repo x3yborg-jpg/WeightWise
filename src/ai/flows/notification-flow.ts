@@ -69,20 +69,23 @@ const binDataAuditorFlow = ai.defineFlow(
     let alertToSend: WhatsappAlertInput | null = null;
     let alertType: 'level' | 'weight' | null = null;
 
+    const isLevelThresholdExceeded = currentLevel >= warningThresholdLevel;
+    const isWeightThresholdExceeded = currentWeight >= warningThresholdWeight;
+
     // 2. Check Level Threshold
-    if (currentLevel >= warningThresholdLevel && !levelAlarmSent) {
+    if (isLevelThresholdExceeded && !levelAlarmSent) {
       alertType = 'level';
       updates.levelAlarmSent = true;
-    } else if (currentLevel < warningThresholdLevel && levelAlarmSent) {
-      updates.levelAlarmSent = false;
+    } else if (!isLevelThresholdExceeded && levelAlarmSent) {
+      updates.levelAlarmSent = false; // Reset the flag
     }
 
     // 3. Check Weight Threshold (only if no level alert is pending)
-    if (!alertType && currentWeight >= warningThresholdWeight && !weightAlarmSent) {
+    if (!alertType && isWeightThresholdExceeded && !weightAlarmSent) {
       alertType = 'weight';
       updates.weightAlarmSent = true;
-    } else if (currentWeight < warningThresholdWeight && weightAlarmSent) {
-      updates.weightAlarmSent = false;
+    } else if (!isWeightThresholdExceeded && weightAlarmSent) {
+      updates.weightAlarmSent = false; // Reset the flag
     }
     
     // 4. Prepare and Send Alert if needed
@@ -156,6 +159,7 @@ const sendNotificationFlow = ai.defineFlow(
 
     const url = `https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
     const templateName = input.alertType === 'level' ? 'level_alert' : 'weight_alert';
+    
     const bodyParams = [
         { type: 'text', text: input.binName },
         { type: 'text', text: input.location },
