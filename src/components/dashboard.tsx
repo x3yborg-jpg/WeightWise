@@ -210,7 +210,6 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
   }
   
   const cardBaseClasses = "bg-card/50 backdrop-blur-sm transition-all duration-300 ease-in-out cursor-pointer hover:bg-card/80 hover:scale-[1.03] hover:border-primary/50 relative group";
-  const isAnyAlarmActive = isLevelAlarmActive || isWeightAlarmActive;
 
   return (
     <>

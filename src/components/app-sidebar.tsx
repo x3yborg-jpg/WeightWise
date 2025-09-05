@@ -64,7 +64,7 @@ export function AppSidebar() {
                     ...prevState,
                     [bin.id]: {
                         isOnline: isOnline,
-                        isAlarmActive: data.isAlarmActive ?? false,
+                        isAlarmActive: data.isLevelAlarmActive || data.isWeightAlarmActive,
                         level: data.level ?? 0,
                     }
                 }));
