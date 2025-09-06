@@ -130,7 +130,7 @@ export function useLoadcellData(binId: string) {
                 timestamp: Date.now(),
                 isLevelAlarmActive: levelAlarm,
                 isWeightAlarmActive: weightAlarm,
-                lastSeen: val.lastSeen
+                lastSeen: updates.lastSeen ?? val.lastSeen
             };
 
             setDataHistory((prevHistory) => {
@@ -140,7 +140,7 @@ export function useLoadcellData(binId: string) {
                         : newHistory;
             });
             
-            checkConnection(val.lastSeen ?? 0);
+            checkConnection(newDataPoint.lastSeen ?? 0);
             
             // Trigger the backend auditor flow to handle alerts
             await binDataAuditor({ binId });
@@ -195,7 +195,7 @@ export function useLoadcellData(binId: string) {
           const shouldLevelAlarmBeActive = newPoint.level > settings.warningThresholdLevel;
           const shouldWeightAlarmBeActive = newPoint.weight > settings.warningThresholdWeight;
           setIsLevelAlarmActive(shouldLevelAlarmBeActive);
-          setIsWeightAlarmActive(shouldWeightAlarmBeActive);
+setIsWeightAlarmActive(shouldWeightAlarmBeActive);
           
           const newHistory = [...prevHistory, { 
               ...newPoint, 
