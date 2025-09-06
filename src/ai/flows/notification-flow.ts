@@ -23,7 +23,7 @@ function formatPhoneNumber(number: string): string {
     return `91${cleaned}`;
 }
 
-export async function sendWhatsAppMessage(templateName: 'level_alert' | 'weight_alert', recipient: string) {
+export async function sendWhatsAppMessage(templateName: 'level_alert' | 'weight_alert', recipients: string[]) {
     const { WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID } = process.env;
 
     if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) {
@@ -33,38 +33,41 @@ export async function sendWhatsAppMessage(templateName: 'level_alert' | 'weight_
     }
     
     const url = `https://graph.facebook.com/v22.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
-    
-    const payload = {
-        messaging_product: 'whatsapp',
-        to: recipient,
-        type: 'template',
-        template: {
-            name: templateName, 
-            language: { code: 'en' },
-        },
-    };
+    let allSuccessful = true;
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-        });
-        const responseData: any = await response.json();
-        if (!response.ok) {
-            console.error(`Failed to send WhatsApp message to ${recipient}:`, responseData.error?.message || `HTTP error! Status: ${response.status}`, `(Code: ${responseData.error?.code})`);
-             return { success: false, message: responseData.error?.message || `HTTP error! Status: ${response.status}` };
-        } else {
-            console.log(`Successfully sent WhatsApp message to ${recipient}:`, responseData.messages[0]?.id);
-             return { success: true, message: `Alert sent to ${recipient}.` };
-        }
-    } catch (error: any) {
-        console.error(`Error sending WhatsApp message to ${recipient}:`, error.message || 'An unknown error occurred.');
-         return { success: false, message: error.message || 'An unknown error occurred.' };
+    for (const recipient of recipients) {
+      const payload = {
+          messaging_product: 'whatsapp',
+          to: recipient,
+          type: 'template',
+          template: {
+              name: templateName, 
+              language: { code: 'en' },
+          },
+      };
+
+      try {
+          const response = await fetch(url, {
+              method: 'POST',
+              headers: {
+                  'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(payload),
+          });
+          const responseData: any = await response.json();
+          if (!response.ok) {
+              allSuccessful = false;
+              console.error(`Failed to send WhatsApp message to ${recipient}:`, responseData.error?.message || `HTTP error! Status: ${response.status}`, `(Code: ${responseData.error?.code})`);
+          } else {
+              console.log(`Successfully sent WhatsApp message to ${recipient}:`, responseData.messages[0]?.id);
+          }
+      } catch (error: any) {
+          allSuccessful = false;
+          console.error(`Error sending WhatsApp message to ${recipient}:`, error.message || 'An unknown error occurred.');
+      }
     }
+    return { success: allSuccessful, message: allSuccessful ? `Alert sent to all recipients.` : 'One or more alerts failed to send.' };
 }
 
 
@@ -110,9 +113,7 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     // LEVEL ALERT
     if (isLevelThresholdExceeded && !levelAlarmSent) {
       if (recipients.length > 0) {
-        for (const recipient of recipients) {
-            await sendWhatsAppMessage('level_alert', recipient);
-        }
+        await sendWhatsAppMessage('level_alert', recipients);
         
         console.log(`Alert sending attempted for level on ${binId}, setting alarm flag.`);
         updates.levelAlarmSent = true;
@@ -132,9 +133,7 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     // WEIGHT ALERT
     if (isWeightThresholdExceeded && !weightAlarmSent) {
        if (recipients.length > 0) {
-        for (const recipient of recipients) {
-            await sendWhatsAppMessage('weight_alert', recipient);
-        }
+        await sendWhatsAppMessage('weight_alert', recipients);
         
         console.log(`Alert sending attempted for weight on ${binId}, setting alarm flag.`);
         updates.weightAlarmSent = true;
