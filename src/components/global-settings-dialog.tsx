@@ -118,7 +118,7 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
             Global Application Settings
           </DialogTitle>
           <DialogDescription>
-            Manage warning thresholds and dashboard alert frequency.
+            Manage warning thresholds, alert frequency, and test notifications.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 py-4">

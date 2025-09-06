@@ -70,12 +70,7 @@ export async function sendWhatsAppMessage(templateName: 'level_alert' | 'weight_
 
 export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ status: string }> {
     const { binId } = input;
-    const { WHATSAPP_RECIPIENT_NUMBERS } = process.env;
     
-    const recipients = WHATSAPP_RECIPIENT_NUMBERS 
-        ? WHATSAPP_RECIPIENT_NUMBERS.split(',').map(num => num.trim()).filter(Boolean)
-        : [];
-
     const binConfigRef = ref(database, `bins-config/${binId}`);
     const binSettingsRef = ref(database, `global-settings`);
     const binDataRef = ref(database, binId);
@@ -93,6 +88,10 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     const binConfig = binConfigSnap.val();
     const globalSettings = binSettingsSnap.val();
     const binData = binDataSnap.val();
+
+    // Fetch recipient numbers from global settings
+    const recipientNumbers = globalSettings.recipientNumbers || '';
+    const recipients = recipientNumbers.split(',').map((num: string) => num.trim()).filter(Boolean);
 
     const updates: any = {};
     

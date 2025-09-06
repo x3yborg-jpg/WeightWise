@@ -2,17 +2,19 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { ref, onValue, set, get, off } from "firebase/database";
+import { ref, onValue, set, get, off, update } from "firebase/database";
 import { database } from "@/lib/firebase";
 
 const DEFAULT_NOTIFICATION_INTERVAL = 1 * 60 * 60 * 1000; // 1 hour
 const DEFAULT_WARNING_LEVEL = 90; // 90%
 const DEFAULT_WARNING_WEIGHT = 35000; // 35kg in grams
+const DEFAULT_RECIPIENT_NUMBERS = ""; // Empty string by default
 
 export interface GlobalSettings {
     notificationInterval: number;
     warningThresholdLevel: number;
     warningThresholdWeight: number;
+    recipientNumbers: string;
 }
 
 interface SettingsContextType {
@@ -30,6 +32,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       notificationInterval: DEFAULT_NOTIFICATION_INTERVAL,
       warningThresholdLevel: DEFAULT_WARNING_LEVEL,
       warningThresholdWeight: DEFAULT_WARNING_WEIGHT,
+      recipientNumbers: DEFAULT_RECIPIENT_NUMBERS,
   });
   const [loading, setLoading] = useState(true);
 
@@ -43,6 +46,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 notificationInterval: data.notificationInterval ?? DEFAULT_NOTIFICATION_INTERVAL,
                 warningThresholdLevel: data.warningThresholdLevel ?? DEFAULT_WARNING_LEVEL,
                 warningThresholdWeight: data.warningThresholdWeight ?? DEFAULT_WARNING_WEIGHT,
+                recipientNumbers: data.recipientNumbers ?? DEFAULT_RECIPIENT_NUMBERS,
             });
         } else {
             // If no global settings, create them with defaults
@@ -50,6 +54,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 notificationInterval: DEFAULT_NOTIFICATION_INTERVAL,
                 warningThresholdLevel: DEFAULT_WARNING_LEVEL,
                 warningThresholdWeight: DEFAULT_WARNING_WEIGHT,
+                recipientNumbers: DEFAULT_RECIPIENT_NUMBERS,
             };
             set(settingsRef, defaultSettings);
             setSettings(defaultSettings);
@@ -67,14 +72,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const updateSettings = async (newSettings: Partial<GlobalSettings>) => {
     setLoading(true);
-    
-    const snapshot = await get(settingsRef);
-    const currentSettings = snapshot.exists() ? snapshot.val() : settings;
-    
-    const updatedSettings = { ...currentSettings, ...newSettings };
-    
-    await set(settingsRef, updatedSettings);
-    // The onValue listener will update the state, so we just set loading to false.
+    await update(settingsRef, newSettings);
     setLoading(false);
   };
 
@@ -94,5 +92,3 @@ export function useSettings() {
   }
   return context;
 }
-
-    

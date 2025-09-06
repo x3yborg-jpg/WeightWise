@@ -11,11 +11,11 @@ import {
   SidebarFooter,
   useSidebar
 } from "@/components/ui/sidebar"
-import { Archive, LogOut, MapPin, Wifi, WifiOff, Bell, AlertCircle, Trash2 } from "lucide-react"
+import { Archive, LogOut, MapPin, Wifi, WifiOff, Bell, AlertCircle, Shield, User } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Link from 'next/link';
 import Image from "next/image";
-import { useAuth } from "@/context/auth-context"
+import { useAuth, UserRole } from "@/context/auth-context"
 import { useEffect, useState } from "react";
 import { onValue, ref, off } from "firebase/database";
 import { database } from "@/lib/firebase";
@@ -24,6 +24,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { GlobalSettingsDialog } from "./global-settings-dialog";
+import { AdminPanelDialog } from "./admin-panel";
 import { cn } from "@/lib/utils";
 import { HEARTBEAT_TIMEOUT } from "@/hooks/use-loadcell-data"
 
@@ -40,7 +41,7 @@ interface AllBinsState {
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, userRole } = useAuth();
   const { isMobile, setOpenMobile } = useSidebar();
   const [allBinsState, setAllBinsState] = useState<AllBinsState>({});
   const { bins } = useBins();
@@ -211,6 +212,16 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
+            {userRole === 'admin' && (
+                <SidebarMenuItem>
+                    <AdminPanelDialog>
+                         <SidebarMenuButton>
+                            <Shield />
+                            <span>Admin Panel</span>
+                         </SidebarMenuButton>
+                    </AdminPanelDialog>
+                </SidebarMenuItem>
+            )}
            <SidebarMenuItem>
              <SidebarMenuButton onClick={logout}>
                 <LogOut />

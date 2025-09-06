@@ -10,7 +10,8 @@ import {
     EmailAuthProvider, 
     reauthenticateWithCredential,
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, database } from '@/lib/firebase';
+import { ref, get, set } from 'firebase/database';
 import { useRouter } from 'next/navigation';
 
 // --- IMPORTANT ---
@@ -21,9 +22,11 @@ import { useRouter } from 'next/navigation';
 const AUTH_DOMAIN = "weightwise.app";
 const SECRET_PASSWORD = "WeightWise"; // This is a shared secret, not a user-specific password.
 
+export type UserRole = 'admin' | 'user';
 
 interface AuthContextType {
   user: User | null;
+  userRole: UserRole | null;
   loading: boolean;
   login: (pin: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -43,12 +46,28 @@ const formatPinToEmail = (pin: string) => {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUser(user);
+        // Fetch user role from Realtime Database
+        const roleRef = ref(database, `users/${user.uid}/role`);
+        const snapshot = await get(roleRef);
+        if (snapshot.exists()) {
+          setUserRole(snapshot.val());
+        } else {
+          // Default to 'user' role if not set
+          await set(roleRef, 'user');
+          setUserRole('user');
+        }
+      } else {
+        setUser(null);
+        setUserRole(null);
+      }
       setLoading(false);
     });
 
@@ -57,7 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (pin: string) => {
     const email = formatPinToEmail(pin);
-    // Use the hardcoded secret password for all logins
     await signInWithEmailAndPassword(auth, email, SECRET_PASSWORD);
   };
   
@@ -66,16 +84,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   };
 
-  // Reauthentication will now use the same secret password
   const reauthenticate = async (password?: string) => {
     if (!user || !user.email) throw new Error("No user is signed in or user has no email.");
-    // We ignore the provided password and use the secret one for re-authentication
     const credential = EmailAuthProvider.credential(user.email, SECRET_PASSWORD);
     await reauthenticateWithCredential(user, credential);
   };
 
   const value = {
     user,
+    userRole,
     loading,
     login,
     logout,

@@ -1,6 +1,8 @@
 
 import { NextResponse } from 'next/server';
 import fetch from 'node-fetch';
+import { database } from '@/lib/firebase';
+import { ref, get } from 'firebase/database';
 
 function formatPhoneNumber(number: string): string {
     const cleaned = number.replace(/\D/g, '');
@@ -11,7 +13,7 @@ function formatPhoneNumber(number: string): string {
 }
 
 export async function POST(request: Request) {
-    const { WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_RECIPIENT_NUMBERS } = process.env;
+    const { WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID } = process.env;
     const body = await request.json();
     const { templateName } = body;
 
@@ -19,15 +21,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, message: "Template name is required." }, { status: 400 });
     }
 
-    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID || !WHATSAPP_RECIPIENT_NUMBERS) {
+    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) {
       const errorMessage = "WhatsApp API credentials are not fully configured in .env file.";
       console.error(`[API Route Error] ${errorMessage}`);
       return NextResponse.json({ success: false, message: errorMessage }, { status: 500 });
     }
+
+    // Fetch recipients from Firebase Realtime Database
+    const settingsRef = ref(database, 'global-settings/recipientNumbers');
+    const settingsSnap = await get(settingsRef);
+    const recipientNumbers = settingsSnap.exists() ? settingsSnap.val() : '';
     
-    const recipients = WHATSAPP_RECIPIENT_NUMBERS.split(',').map(num => num.trim()).filter(Boolean);
+    const recipients = recipientNumbers.split(',').map((num: string) => num.trim()).filter(Boolean);
+
     if (recipients.length === 0) {
-      const errorMessage = "No recipient phone numbers configured in .env file.";
+      const errorMessage = "No recipient phone numbers configured in the Admin Panel.";
        console.error(`[API Route Error] ${errorMessage}`);
       return NextResponse.json({ success: false, message: errorMessage }, { status: 400 });
     }

@@ -4,7 +4,7 @@
 import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
-import { AlertCircle, Bell, Settings } from "lucide-react";
+import { AlertCircle, Bell, Settings, Shield } from "lucide-react";
 import { useBins } from "@/context/bin-context";
 import { useEffect, useState } from "react";
 import { ref, onValue, off } from "firebase/database";
@@ -14,6 +14,8 @@ import { Badge } from "./ui/badge";
 import Link from "next/link";
 import Image from "next/image";
 import { GlobalSettingsDialog } from "./global-settings-dialog";
+import { AdminPanelDialog } from "./admin-panel";
+import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
 
 
@@ -32,6 +34,7 @@ export function MobileHeader() {
   const { isMobile, toggleSidebar } = useSidebar();
   const [allBinsState, setAllBinsState] = useState<AllBinsState>({});
   const { bins } = useBins();
+  const { userRole } = useAuth();
 
   useEffect(() => {
     if (!bins.length) return;
@@ -114,7 +117,14 @@ export function MobileHeader() {
          />
          <span className="font-semibold font-heading">WeightWise</span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
+         {userRole === 'admin' && (
+            <AdminPanelDialog>
+                 <Button variant="ghost" size="icon">
+                    <Shield className="h-5 w-5 text-muted-foreground transition-transform hover:text-primary" />
+                </Button>
+            </AdminPanelDialog>
+         )}
          <Sheet>
             <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative">
