@@ -64,9 +64,12 @@ export function useLoadcellData(binId: string) {
   const [isWeightAlarmActive, setIsWeightAlarmActive] = useState(false);
   
   const { settings, loading: settingsLoading } = useSettings();
-  const lastIsONRef = useRef<number | undefined>(undefined);
   
-  const checkConnection = useCallback((lastSeenTime: number) => {
+  const checkConnection = useCallback((lastSeenTime: number | undefined) => {
+      if (!lastSeenTime) {
+          setIsConnected(false);
+          return;
+      }
       const now = Date.now();
       if (now - lastSeenTime < HEARTBEAT_TIMEOUT) {
           setIsConnected(true);
@@ -86,7 +89,6 @@ export function useLoadcellData(binId: string) {
     setIsDemoMode(false);
     setIsLevelAlarmActive(false);
     setIsWeightAlarmActive(false);
-    lastIsONRef.current = undefined;
 
     const dbRef = ref(database, binId);
 
@@ -96,41 +98,18 @@ export function useLoadcellData(binId: string) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
-        const { warningThresholdLevel, warningThresholdWeight } = settings;
-        const levelAlarm = val.level >= warningThresholdLevel;
-        const weightAlarm = val.weight >= warningThresholdWeight;
-
-        // Set local state for UI reactivity
-        setIsLevelAlarmActive(levelAlarm);
-        setIsWeightAlarmActive(weightAlarm);
+        // Let the backend flow handle alarm logic, just read the state here.
+        setIsLevelAlarmActive(val.isLevelAlarmActive ?? false);
+        setIsWeightAlarmActive(val.isWeightAlarmActive ?? false);
         
-        // Update the database with the current alarm state for other components to use
-        const updates: any = {};
-        if (val.isLevelAlarmActive !== levelAlarm) {
-            updates.isLevelAlarmActive = levelAlarm;
-        }
-        if (val.isWeightAlarmActive !== weightAlarm) {
-            updates.isWeightAlarmActive = weightAlarm;
-        }
-        
-        // Check for heartbeat change and update lastSeen
-        if (val.IsON !== undefined && val.IsON !== lastIsONRef.current) {
-            updates.lastSeen = Date.now();
-            lastIsONRef.current = val.IsON;
-        }
-
-        if (Object.keys(updates).length > 0) {
-            await update(dbRef, updates);
-        }
-
         if (typeof val.weight === 'number' && typeof val.level === 'number') {
             const newDataPoint: LoadCellData = {
                 weight: val.weight,
                 level: val.level,
                 timestamp: Date.now(),
-                isLevelAlarmActive: levelAlarm,
-                isWeightAlarmActive: weightAlarm,
-                lastSeen: updates.lastSeen ?? val.lastSeen
+                isLevelAlarmActive: val.isLevelAlarmActive,
+                isWeightAlarmActive: val.isWeightAlarmActive,
+                lastSeen: val.lastSeen
             };
 
             setDataHistory((prevHistory) => {
@@ -140,9 +119,9 @@ export function useLoadcellData(binId: string) {
                         : newHistory;
             });
             
-            checkConnection(newDataPoint.lastSeen ?? 0);
+            checkConnection(newDataPoint.lastSeen);
             
-            // Trigger the backend auditor flow to handle alerts
+            // Trigger the backend auditor flow to handle alerts and lastSeen updates
             await binDataAuditor({ binId });
         }
 
@@ -162,11 +141,12 @@ export function useLoadcellData(binId: string) {
       setLoading(false);
     });
     
+    // This interval is a fallback to check connection status periodically
     const intervalId = setInterval(async () => {
          const snapshot = await get(dbRef);
          if(snapshot.exists()) {
              const val: RawData = snapshot.val();
-             checkConnection(val.lastSeen ?? 0);
+             checkConnection(val.lastSeen);
          }
     }, 60000);
 
@@ -174,7 +154,7 @@ export function useLoadcellData(binId: string) {
       off(dbRef, 'value', listener);
       clearInterval(intervalId);
     };
-  }, [binId, settingsLoading, settings.warningThresholdLevel, settings.warningThresholdWeight, checkConnection]);
+  }, [binId, settingsLoading, checkConnection]);
 
   // Demo mode effect
   useEffect(() => {

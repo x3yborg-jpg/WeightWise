@@ -10,6 +10,7 @@ export interface BinConfig {
     name: string;
     deviceId: string;
     location: string;
+    lastHeartbeat?: number;
 }
 
 interface BinContextType {
@@ -21,8 +22,8 @@ interface BinContextType {
 
 const BinContext = createContext<BinContextType | undefined>(undefined);
 
-const INITIAL_BINS_CONFIG: BinConfig[] = [
-    { id: "bin1", name: "Tree Side", deviceId: "DEV-1001", location: "Kallambalam" },
+const INITIAL_BINS_CONFIG: Omit<BinConfig, 'id'>[] = [
+    { name: "Tree Side", deviceId: "DEV-1001", location: "Kallambalam", lastHeartbeat: 0 },
 ];
 
 async function initializeBinConfig() {
@@ -30,13 +31,10 @@ async function initializeBinConfig() {
     const snapshot = await get(binConfigRef);
     if (!snapshot.exists()) {
         console.log("No bin configuration found in Firebase, initializing with default.");
-        const initialData: {[key: string]: Omit<BinConfig, 'id'>} = {};
-        INITIAL_BINS_CONFIG.forEach(bin => {
-            const { id, ...rest } = bin;
-            initialData[id] = rest;
+        await set(binConfigRef, {
+            "bin1": INITIAL_BINS_CONFIG[0]
         });
-        await set(binConfigRef, initialData);
-        return INITIAL_BINS_CONFIG;
+        return [{ id: "bin1", ...INITIAL_BINS_CONFIG[0] }];
     }
     const data = snapshot.val();
     return Object.keys(data).map(key => ({ id: key, ...data[key] }));
@@ -73,13 +71,13 @@ export function BinProvider({ children }: { children: ReactNode }) {
 
   }, []);
 
-  const updateBin = async (binId: string, data: Partial<Omit<BinConfig, 'id'>>) => {
+  const updateBin = async (binId: string, data: Partial<Omit<BinConfig, 'id' | 'deviceId' | 'lastHeartbeat'>>) => {
     setLoading(true);
     const binRef = ref(database, `bins-config/${binId}`);
     const snapshot = await get(binRef);
     if(snapshot.exists()) {
         const currentData = snapshot.val();
-        await set(binRef, { ...currentData, ...data });
+        await update(binRef, { ...currentData, ...data });
     }
     setLoading(false);
   };

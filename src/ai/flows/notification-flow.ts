@@ -72,10 +72,9 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     const { binId } = input;
     const { WHATSAPP_RECIPIENT_NUMBERS } = process.env;
     
-    if (!WHATSAPP_RECIPIENT_NUMBERS) {
-      return { status: "WhatsApp recipient numbers are not configured." };
-    }
-    const recipients = WHATSAPP_RECIPIENT_NUMBERS.split(',').map(num => num.trim()).filter(Boolean);
+    const recipients = WHATSAPP_RECIPIENT_NUMBERS 
+        ? WHATSAPP_RECIPIENT_NUMBERS.split(',').map(num => num.trim()).filter(Boolean)
+        : [];
 
     const binConfigRef = ref(database, `bins-config/${binId}`);
     const binSettingsRef = ref(database, `global-settings`);
@@ -95,10 +94,19 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     const globalSettings = binSettingsSnap.val();
     const binData = binDataSnap.val();
 
+    const updates: any = {};
+    
+    // Heartbeat/LastSeen Logic
+    const currentHeartbeat = binData.IsON;
+    const lastKnownHeartbeat = binConfig.lastHeartbeat ?? null;
+    if (currentHeartbeat !== undefined && currentHeartbeat !== lastKnownHeartbeat) {
+        updates.lastSeen = Date.now();
+        await update(binConfigRef, { lastHeartbeat: currentHeartbeat });
+    }
+
+    // Alert Logic
     const { warningThresholdLevel, warningThresholdWeight } = globalSettings;
     const { level, weight, levelAlarmSent, weightAlarmSent } = binData;
-
-    let updates: any = {};
     let alertType: 'level_alert' | 'weight_alert' | null = null;
     
     const isLevelThresholdExceeded = level >= warningThresholdLevel;
@@ -111,14 +119,14 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
       updates.levelAlarmSent = false;
     }
     
-    // Check Weight Threshold
-    if (isWeightThresholdExceeded && !weightAlarmSent && !alertType) {
+    // Check Weight Threshold, but only if a level alert hasn't already been queued
+    if (!alertType && isWeightThresholdExceeded && !weightAlarmSent) {
         alertType = 'weight_alert';
     } else if (!isWeightThresholdExceeded && weightAlarmSent) {
       updates.weightAlarmSent = false;
     }
     
-    if (alertType) {
+    if (alertType && recipients.length > 0) {
         let allSuccessful = true;
         for (const recipient of recipients) {
             const formattedRecipient = formatPhoneNumber(recipient);
@@ -141,7 +149,7 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
                 message: `⚠️ ${message}`,
             });
         } else {
-             console.error(`Failed to send ${alertType} for ${binId}, not setting flag.`);
+             console.error(`Failed to send ${alertType} for ${binId}, not setting alarm flag.`);
         }
     }
     
