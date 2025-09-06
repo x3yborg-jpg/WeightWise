@@ -106,48 +106,53 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     // Alert Logic
     const { warningThresholdLevel, warningThresholdWeight } = globalSettings;
     const { level, weight, levelAlarmSent, weightAlarmSent } = binData;
-    let alertType: 'level_alert' | 'weight_alert' | null = null;
     
     const isLevelThresholdExceeded = level >= warningThresholdLevel;
     const isWeightThresholdExceeded = weight >= warningThresholdWeight;
 
+    let alertTypeTriggered: 'level_alert' | 'weight_alert' | null = null;
+    
     // Check Level Threshold
     if (isLevelThresholdExceeded && !levelAlarmSent) {
-        alertType = 'level_alert';
+      alertTypeTriggered = 'level_alert';
+      updates.levelAlarmSent = true;
     } else if (!isLevelThresholdExceeded && levelAlarmSent) {
       updates.levelAlarmSent = false;
     }
     
-    // Check Weight Threshold, but only if a level alert hasn't already been queued
-    if (!alertType && isWeightThresholdExceeded && !weightAlarmSent) {
-        alertType = 'weight_alert';
+    // Check Weight Threshold
+    if (isWeightThresholdExceeded && !weightAlarmSent) {
+      alertTypeTriggered = 'weight_alert';
+      updates.weightAlarmSent = true;
     } else if (!isWeightThresholdExceeded && weightAlarmSent) {
       updates.weightAlarmSent = false;
     }
     
-    if (alertType && recipients.length > 0) {
+    if (alertTypeTriggered && recipients.length > 0) {
         let allSuccessful = true;
         for (const recipient of recipients) {
-            const sendResult = await sendWhatsAppMessage(alertType, recipient);
+            const sendResult = await sendWhatsAppMessage(alertTypeTriggered, recipient);
             if (!sendResult.success) {
                 allSuccessful = false;
             }
         }
         
         if (allSuccessful) {
-            updates[`${alertType.replace('_alert', 'AlarmSent')}`] = true;
             const logRef = ref(database, `alerts-log/${binId}`);
-            const message = alertType === 'level_alert' 
+            const message = alertTypeTriggered === 'level_alert' 
                 ? `Level alert: ${binConfig.name} at ${binConfig.location} reached ${level.toFixed(1)}%`
                 : `Weight alert: ${binConfig.name} at ${binConfig.location} reached ${(weight / 1000).toFixed(1)}kg`;
             
             await push(logRef, {
                 timestamp: serverTimestamp(),
-                type: alertType,
+                type: alertTypeTriggered,
                 message: `⚠️ ${message}`,
             });
         } else {
-             console.error(`Failed to send ${alertType} for ${binId}, not setting alarm flag.`);
+             console.error(`Failed to send ${alertTypeTriggered} for ${binId}, not setting alarm flag.`);
+             // Revert the update if sending fails
+             if (alertTypeTriggered === 'level_alert') delete updates.levelAlarmSent;
+             if (alertTypeTriggered === 'weight_alert') delete updates.weightAlarmSent;
         }
     }
     
@@ -155,5 +160,5 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
       await update(binDataRef, updates);
     }
 
-    return { status: `Audit complete for ${binId}. Alert type triggered: ${alertType ?? 'none'}` };
+    return { status: `Audit complete for ${binId}. Alert type triggered: ${alertTypeTriggered ?? 'none'}` };
 }
