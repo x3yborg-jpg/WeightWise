@@ -15,8 +15,15 @@ const BinDataAuditorInputSchema = z.object({
 });
 type BinDataAuditorInput = z.infer<typeof BinDataAuditorInputSchema>;
 
+function formatPhoneNumber(number: string): string {
+    const cleaned = number.replace(/\D/g, '');
+    if (cleaned.startsWith('91')) {
+        return cleaned;
+    }
+    return `91${cleaned}`;
+}
 
-export async function sendWhatsAppMessage(templateName: 'level_alert' | 'weight_alert', recipient: string, params: Record<string, string>) {
+export async function sendWhatsAppMessage(templateName: 'level_alert' | 'weight_alert', recipient: string) {
     const { WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID } = process.env;
 
     if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) {
@@ -25,7 +32,7 @@ export async function sendWhatsAppMessage(templateName: 'level_alert' | 'weight_
       return { success: false, message: errorMessage };
     }
     
-    const url = `https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    const url = `https://graph.facebook.com/v22.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
     
     const payload = {
         messaging_product: 'whatsapp',
@@ -34,18 +41,6 @@ export async function sendWhatsAppMessage(templateName: 'level_alert' | 'weight_
         template: {
             name: templateName, 
             language: { code: 'en_US' },
-            components: [
-                {
-                    type: 'body',
-                    parameters: [
-                        { type: 'text', text: params.bin_name || 'N/A' },
-                        { type: 'text', text: params.level || 'N/A' },
-                        { type: 'text', text: params.weight || 'N/A' },
-                        { type: 'text', text: params.status || 'Online' },
-                        { type: 'text', text: params.location || 'N/A' },
-                    ]
-                }
-            ]
         },
     };
 
@@ -60,7 +55,7 @@ export async function sendWhatsAppMessage(templateName: 'level_alert' | 'weight_
         });
         const responseData: any = await response.json();
         if (!response.ok) {
-            console.error(`Failed to send WhatsApp message to ${recipient}:`, responseData.error?.message || `HTTP error! Status: ${response.status}`);
+            console.error(`Failed to send WhatsApp message to ${recipient}:`, responseData.error?.message || `HTTP error! Status: ${response.status}`, `(Code: ${responseData.error?.code})`);
              return { success: false, message: responseData.error?.message || `HTTP error! Status: ${response.status}` };
         } else {
             console.log(`Successfully sent WhatsApp message to ${recipient}:`, responseData.messages[0]?.id);
@@ -82,7 +77,6 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     }
     const recipients = WHATSAPP_RECIPIENT_NUMBERS.split(',').map(num => num.trim()).filter(Boolean);
 
-    // 1. Get bin configuration and global settings from Firebase
     const binConfigRef = ref(database, `bins-config/${binId}`);
     const binSettingsRef = ref(database, `global-settings`);
     const binDataRef = ref(database, binId);
@@ -110,39 +104,30 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     const isLevelThresholdExceeded = level >= warningThresholdLevel;
     const isWeightThresholdExceeded = weight >= warningThresholdWeight;
 
-    // 2. Check Level Threshold
+    // Check Level Threshold
     if (isLevelThresholdExceeded && !levelAlarmSent) {
         alertType = 'level';
     } else if (!isLevelThresholdExceeded && levelAlarmSent) {
-      updates.levelAlarmSent = false; // Reset the flag
+      updates.levelAlarmSent = false;
     }
     
-    // 3. Check Weight Threshold
-    if (isWeightThresholdExceeded && !weightAlarmSent && !alertType) { // only check if level alert not already triggered
+    // Check Weight Threshold
+    if (isWeightThresholdExceeded && !weightAlarmSent && !alertType) {
         alertType = 'weight';
     } else if (!isWeightThresholdExceeded && weightAlarmSent) {
-      updates.weightAlarmSent = false; // Reset the flag
+      updates.weightAlarmSent = false;
     }
     
-    // 4. Prepare and Send Alert if needed
     if (alertType) {
-        const params = {
-            bin_name: binConfig.name,
-            level: `${level.toFixed(1)}`,
-            weight: `${(weight / 1000).toFixed(1)}`,
-            status: Date.now() - (lastSeen || 0) < 1800000 ? 'Online' : 'Offline',
-            location: binConfig.location
-        };
-
         let allSuccessful = true;
         for (const recipient of recipients) {
-            const sendResult = await sendWhatsAppMessage(alertType, recipient, params);
+            const formattedRecipient = formatPhoneNumber(recipient);
+            const sendResult = await sendWhatsAppMessage(alertType, formattedRecipient);
             if (!sendResult.success) {
                 allSuccessful = false;
             }
         }
         
-        // Only set the flag and log if the notification was successful
         if (allSuccessful) {
             updates[`${alertType}AlarmSent`] = true;
             const logRef = ref(database, `alerts-log/${binId}`);
@@ -160,7 +145,6 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
         }
     }
     
-    // 5. Apply any necessary updates to the database (flags)
     if (Object.keys(updates).length > 0) {
       await update(binDataRef, updates);
     }

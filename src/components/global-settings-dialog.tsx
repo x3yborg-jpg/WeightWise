@@ -14,7 +14,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Loader2, Settings, Clock, Percent, Weight, MessageSquare } from 'lucide-react';
+import { Loader2, Settings, Clock, Percent, Weight, MessageSquare, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import {
@@ -48,6 +48,7 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
   const [warningThresholdLevel, setWarningThresholdLevel] = useState(settings.warningThresholdLevel);
   const [warningThresholdWeight, setWarningThresholdWeight] = useState(settings.warningThresholdWeight);
   const [isTestSending, setIsTestSending] = useState(false);
+  const [testTemplate, setTestTemplate] = useState<'level_alert' | 'weight_alert' | null>(null);
 
 
   useEffect(() => {
@@ -72,18 +73,21 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
     setIsDialogOpen(open);
   };
 
-  const handleTestMessage = async () => {
+  const handleTestMessage = async (template: 'level_alert' | 'weight_alert') => {
     setIsTestSending(true);
+    setTestTemplate(template);
     try {
       const response = await fetch('/api/send-test-message', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateName: template }),
       });
       const result = await response.json();
 
       if (response.ok) {
           toast({
               title: "Test Message Sent",
-              description: result.message || "Check your WhatsApp for a 'hello_world' message."
+              description: result.message || `Test message using '${template}' sent.`
           });
       } else {
           toast({
@@ -100,6 +104,7 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
         });
     } finally {
         setIsTestSending(false);
+        setTestTemplate(null);
     }
   }
   
@@ -187,11 +192,17 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
                 <MessageSquare className="h-4 w-4" />
                 WhatsApp Notification Test
             </Label>
-             <p className="text-xs text-muted-foreground">Click the button to send a test message to all configured recipients. This uses the 'hello_world' template.</p>
-             <Button variant="secondary" onClick={handleTestMessage} disabled={isTestSending}>
-                 {isTestSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                 Send Test Message
-             </Button>
+             <p className="text-xs text-muted-foreground">Click a button to send a test message to all configured recipients.</p>
+             <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => handleTestMessage('level_alert')} disabled={isTestSending}>
+                    {isTestSending && testTemplate === 'level_alert' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
+                    Send Level Alert Test
+                </Button>
+                 <Button variant="secondary" onClick={() => handleTestMessage('weight_alert')} disabled={isTestSending}>
+                    {isTestSending && testTemplate === 'weight_alert' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Weight className="mr-2 h-4 w-4" />}
+                    Send Weight Alert Test
+                </Button>
+            </div>
             </div>
         </div>
         <DialogFooter>
