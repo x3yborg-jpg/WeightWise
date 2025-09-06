@@ -110,55 +110,69 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     const isLevelThresholdExceeded = level >= warningThresholdLevel;
     const isWeightThresholdExceeded = weight >= warningThresholdWeight;
 
-    let alertTypeTriggered: 'level_alert' | 'weight_alert' | null = null;
-    
-    // Check Level Threshold
+    // LEVEL ALERT
     if (isLevelThresholdExceeded && !levelAlarmSent) {
-      alertTypeTriggered = 'level_alert';
-      updates.levelAlarmSent = true;
-    } else if (!isLevelThresholdExceeded && levelAlarmSent) {
-      updates.levelAlarmSent = false;
-    }
-    
-    // Check Weight Threshold
-    if (isWeightThresholdExceeded && !weightAlarmSent) {
-      alertTypeTriggered = 'weight_alert';
-      updates.weightAlarmSent = true;
-    } else if (!isWeightThresholdExceeded && weightAlarmSent) {
-      updates.weightAlarmSent = false;
-    }
-    
-    if (alertTypeTriggered && recipients.length > 0) {
+      if (recipients.length > 0) {
         let allSuccessful = true;
         for (const recipient of recipients) {
-            const sendResult = await sendWhatsAppMessage(alertTypeTriggered, recipient);
+            const sendResult = await sendWhatsAppMessage('level_alert', recipient);
             if (!sendResult.success) {
                 allSuccessful = false;
             }
         }
         
         if (allSuccessful) {
-            const logRef = ref(database, `alerts-log/${binId}`);
-            const message = alertTypeTriggered === 'level_alert' 
-                ? `Level alert: ${binConfig.name} at ${binConfig.location} reached ${level.toFixed(1)}%`
-                : `Weight alert: ${binConfig.name} at ${binConfig.location} reached ${(weight / 1000).toFixed(1)}kg`;
+            console.log(`Successfully sent level_alert for ${binId}, setting alarm flag.`);
+            updates.levelAlarmSent = true;
             
+            const logRef = ref(database, `alerts-log/${binId}`);
+            const message = `Level alert: ${binConfig.name} at ${binConfig.location} reached ${level.toFixed(1)}%`;
             await push(logRef, {
                 timestamp: serverTimestamp(),
-                type: alertTypeTriggered,
+                type: 'level_alert',
                 message: `⚠️ ${message}`,
             });
         } else {
-             console.error(`Failed to send ${alertTypeTriggered} for ${binId}, not setting alarm flag.`);
-             // Revert the update if sending fails
-             if (alertTypeTriggered === 'level_alert') delete updates.levelAlarmSent;
-             if (alertTypeTriggered === 'weight_alert') delete updates.weightAlarmSent;
+            console.error(`Failed to send one or more level_alert messages for ${binId}. Alarm flag not set.`);
         }
+      }
+    } else if (!isLevelThresholdExceeded && levelAlarmSent) {
+      updates.levelAlarmSent = false;
+    }
+    
+    // WEIGHT ALERT
+    if (isWeightThresholdExceeded && !weightAlarmSent) {
+       if (recipients.length > 0) {
+        let allSuccessful = true;
+        for (const recipient of recipients) {
+            const sendResult = await sendWhatsAppMessage('weight_alert', recipient);
+            if (!sendResult.success) {
+                allSuccessful = false;
+            }
+        }
+        
+        if (allSuccessful) {
+            console.log(`Successfully sent weight_alert for ${binId}, setting alarm flag.`);
+            updates.weightAlarmSent = true;
+            
+            const logRef = ref(database, `alerts-log/${binId}`);
+            const message = `Weight alert: ${binConfig.name} at ${binConfig.location} reached ${(weight / 1000).toFixed(1)}kg`;
+            await push(logRef, {
+                timestamp: serverTimestamp(),
+                type: 'weight_alert',
+                message: `⚠️ ${message}`,
+            });
+        } else {
+             console.error(`Failed to send one or more weight_alert messages for ${binId}. Alarm flag not set.`);
+        }
+      }
+    } else if (!isWeightThresholdExceeded && weightAlarmSent) {
+      updates.weightAlarmSent = false;
     }
     
     if (Object.keys(updates).length > 0) {
       await update(binDataRef, updates);
     }
 
-    return { status: `Audit complete for ${binId}. Alert type triggered: ${alertTypeTriggered ?? 'none'}` };
+    return { status: `Audit complete for ${binId}.` };
 }
