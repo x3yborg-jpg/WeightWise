@@ -89,13 +89,11 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     const globalSettings = binSettingsSnap.val();
     const binData = binDataSnap.val();
 
-    // Fetch recipient numbers from global settings
-    const recipientNumbers = globalSettings.recipientNumbers || '';
-    const recipients = recipientNumbers.split(',').map((num: string) => formatPhoneNumber(num.trim())).filter(Boolean);
+    const recipientNumbersStr = globalSettings.recipientNumbers || '';
+    const recipients = recipientNumbersStr.split(',').map((num: string) => formatPhoneNumber(num.trim())).filter(Boolean);
 
     const updates: any = {};
     
-    // Heartbeat/LastSeen Logic
     const currentHeartbeat = binData.IsON;
     const lastKnownHeartbeat = binConfig.lastHeartbeat ?? null;
     if (currentHeartbeat !== undefined && currentHeartbeat !== lastKnownHeartbeat) {
@@ -103,7 +101,6 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
         await update(binConfigRef, { lastHeartbeat: currentHeartbeat });
     }
 
-    // Alert Logic
     const { warningThresholdLevel, warningThresholdWeight } = globalSettings;
     const { level, weight, levelAlarmSent, weightAlarmSent } = binData;
     
@@ -113,28 +110,20 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     // LEVEL ALERT
     if (isLevelThresholdExceeded && !levelAlarmSent) {
       if (recipients.length > 0) {
-        let allSuccessful = true;
         for (const recipient of recipients) {
-            const sendResult = await sendWhatsAppMessage('level_alert', recipient);
-            if (!sendResult.success) {
-                allSuccessful = false;
-            }
+            await sendWhatsAppMessage('level_alert', recipient);
         }
         
-        if (allSuccessful) {
-            console.log(`Successfully sent level_alert for ${binId}, setting alarm flag.`);
-            updates.levelAlarmSent = true;
-            
-            const logRef = ref(database, `alerts-log/${binId}`);
-            const message = `Level alert: ${binConfig.name} at ${binConfig.location} reached ${level.toFixed(1)}%`;
-            await push(logRef, {
-                timestamp: serverTimestamp(),
-                type: 'level_alert',
-                message: `⚠️ ${message}`,
-            });
-        } else {
-            console.error(`Failed to send one or more level_alert messages for ${binId}. Alarm flag not set.`);
-        }
+        console.log(`Alert sending attempted for level on ${binId}, setting alarm flag.`);
+        updates.levelAlarmSent = true;
+        
+        const logRef = ref(database, `alerts-log/${binId}`);
+        const message = `Level alert: ${binConfig.name} at ${binConfig.location} reached ${level.toFixed(1)}%`;
+        await push(logRef, {
+            timestamp: serverTimestamp(),
+            type: 'level_alert',
+            message: `⚠️ ${message}`,
+        });
       }
     } else if (!isLevelThresholdExceeded && levelAlarmSent) {
       updates.levelAlarmSent = false;
@@ -143,28 +132,20 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     // WEIGHT ALERT
     if (isWeightThresholdExceeded && !weightAlarmSent) {
        if (recipients.length > 0) {
-        let allSuccessful = true;
         for (const recipient of recipients) {
-            const sendResult = await sendWhatsAppMessage('weight_alert', recipient);
-            if (!sendResult.success) {
-                allSuccessful = false;
-            }
+            await sendWhatsAppMessage('weight_alert', recipient);
         }
         
-        if (allSuccessful) {
-            console.log(`Successfully sent weight_alert for ${binId}, setting alarm flag.`);
-            updates.weightAlarmSent = true;
-            
-            const logRef = ref(database, `alerts-log/${binId}`);
-            const message = `Weight alert: ${binConfig.name} at ${binConfig.location} reached ${(weight / 1000).toFixed(1)}kg`;
-            await push(logRef, {
-                timestamp: serverTimestamp(),
-                type: 'weight_alert',
-                message: `⚠️ ${message}`,
-            });
-        } else {
-             console.error(`Failed to send one or more weight_alert messages for ${binId}. Alarm flag not set.`);
-        }
+        console.log(`Alert sending attempted for weight on ${binId}, setting alarm flag.`);
+        updates.weightAlarmSent = true;
+        
+        const logRef = ref(database, `alerts-log/${binId}`);
+        const message = `Weight alert: ${binConfig.name} at ${binConfig.location} reached ${(weight / 1000).toFixed(1)}kg`;
+        await push(logRef, {
+            timestamp: serverTimestamp(),
+            type: 'weight_alert',
+            message: `⚠️ ${message}`,
+        });
       }
     } else if (!isWeightThresholdExceeded && weightAlarmSent) {
       updates.weightAlarmSent = false;
