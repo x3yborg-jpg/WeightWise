@@ -112,12 +112,15 @@ export function useLoadcellData(binId: string) {
         if (val.isWeightAlarmActive !== weightAlarm) {
             updates.isWeightAlarmActive = weightAlarm;
         }
-        if (Object.keys(updates).length > 0) {
-            await update(dbRef, updates);
+        
+        // Check for heartbeat change and update lastSeen
+        if (val.IsON !== undefined && val.IsON !== lastIsONRef.current) {
+            updates.lastSeen = Date.now();
+            lastIsONRef.current = val.IsON;
         }
 
-        if (lastIsONRef.current === undefined) {
-          lastIsONRef.current = val.IsON;
+        if (Object.keys(updates).length > 0) {
+            await update(dbRef, updates);
         }
 
         if (typeof val.weight === 'number' && typeof val.level === 'number') {
@@ -139,18 +142,8 @@ export function useLoadcellData(binId: string) {
             
             checkConnection(val.lastSeen ?? 0);
             
-            // Check for heartbeat change and update lastSeen
-            if (val.IsON !== undefined && val.IsON !== lastIsONRef.current) {
-              await update(dbRef, { lastSeen: Date.now() });
-              lastIsONRef.current = val.IsON;
-            }
-            
             // Trigger the backend auditor flow to handle alerts
-            await binDataAuditor({
-                binId,
-                currentLevel: val.level,
-                currentWeight: val.weight,
-            });
+            await binDataAuditor({ binId });
         }
 
       } else {

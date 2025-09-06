@@ -96,7 +96,7 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     const binData = binDataSnap.val();
 
     const { warningThresholdLevel, warningThresholdWeight } = globalSettings;
-    const { level, weight, levelAlarmSent, weightAlarmSent, lastSeen } = binData;
+    const { level, weight, levelAlarmSent, weightAlarmSent } = binData;
 
     let updates: any = {};
     let alertType: 'level_alert' | 'weight_alert' | null = null;
