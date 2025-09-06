@@ -26,8 +26,6 @@ export interface RawData {
     weight: number;
     level: number;
     IsON?: number;
-    isLevelAlarmActive?: boolean;
-    isWeightAlarmActive?: boolean;
     levelAlarmSent?: boolean;
     weightAlarmSent?: boolean;
     lastSeen?: number;
@@ -98,17 +96,17 @@ export function useLoadcellData(binId: string) {
         setIsDemoMode(false);
         const val: RawData = snapshot.val();
         
-        // Let the backend flow handle alarm logic, just read the state here.
-        setIsLevelAlarmActive(val.isLevelAlarmActive ?? false);
-        setIsWeightAlarmActive(val.isWeightAlarmActive ?? false);
+        // Correctly read the alarm flags from the database.
+        setIsLevelAlarmActive(val.levelAlarmSent ?? false);
+        setIsWeightAlarmActive(val.weightAlarmSent ?? false);
         
         if (typeof val.weight === 'number' && typeof val.level === 'number') {
             const newDataPoint: LoadCellData = {
                 weight: val.weight,
                 level: val.level,
                 timestamp: Date.now(),
-                isLevelAlarmActive: val.isLevelAlarmActive,
-                isWeightAlarmActive: val.isWeightAlarmActive,
+                isLevelAlarmActive: val.levelAlarmSent,
+                isWeightAlarmActive: val.weightAlarmSent,
                 lastSeen: val.lastSeen
             };
 
@@ -174,8 +172,10 @@ export function useLoadcellData(binId: string) {
           
           const shouldLevelAlarmBeActive = newPoint.level > settings.warningThresholdLevel;
           const shouldWeightAlarmBeActive = newPoint.weight > settings.warningThresholdWeight;
+          
+          // Set the alarm state for demo mode correctly.
           setIsLevelAlarmActive(shouldLevelAlarmBeActive);
-setIsWeightAlarmActive(shouldWeightAlarmBeActive);
+          setIsWeightAlarmActive(shouldWeightAlarmBeActive);
           
           const newHistory = [...prevHistory, { 
               ...newPoint, 
