@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const settingsSnap = await get(settingsRef);
     const recipientNumbers = settingsSnap.exists() ? settingsSnap.val() : '';
     
-    const recipients = recipientNumbers.split(',').map((num: string) => num.trim()).filter(Boolean);
+    const recipients = recipientNumbers.split(',').map((num: string) => formatPhoneNumber(num.trim())).filter(Boolean);
 
     if (recipients.length === 0) {
       const errorMessage = "No recipient phone numbers configured in the Admin Panel.";
@@ -46,10 +46,9 @@ export async function POST(request: Request) {
     let firstError = null;
 
     for (const recipient of recipients) {
-        const formattedRecipient = formatPhoneNumber(recipient);
         const payload = {
             messaging_product: 'whatsapp',
-            to: formattedRecipient,
+            to: recipient,
             type: 'template',
             template: {
                 name: templateName, 
@@ -70,17 +69,17 @@ export async function POST(request: Request) {
             if (!response.ok) {
                 allSuccessful = false;
                 const errorMessage = responseData.error?.message || `HTTP error! Status: ${response.status}`;
-                console.error(`Failed to send WhatsApp message to ${formattedRecipient}:`, errorMessage, `(Code: ${responseData.error?.code})`);
+                console.error(`Failed to send WhatsApp message to ${recipient}:`, errorMessage, `(Code: ${responseData.error?.code})`);
                 if (!firstError) {
                     firstError = `Error Code ${responseData.error?.code}: ${errorMessage}`;
                 }
             } else {
-                console.log(`Successfully sent WhatsApp message to ${formattedRecipient}:`, responseData.messages[0]?.id);
+                console.log(`Successfully sent WhatsApp message to ${recipient}:`, responseData.messages[0]?.id);
             }
         } catch (error: any) {
             allSuccessful = false;
             const errorMessage = error.message || 'An unknown error occurred.';
-            console.error(`Error sending WhatsApp message to ${formattedRecipient}:`, errorMessage);
+            console.error(`Error sending WhatsApp message to ${recipient}:`, errorMessage);
             if (!firstError) {
                 firstError = errorMessage;
             }

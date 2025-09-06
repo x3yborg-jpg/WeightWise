@@ -91,7 +91,7 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
 
     // Fetch recipient numbers from global settings
     const recipientNumbers = globalSettings.recipientNumbers || '';
-    const recipients = recipientNumbers.split(',').map((num: string) => num.trim()).filter(Boolean);
+    const recipients = recipientNumbers.split(',').map((num: string) => formatPhoneNumber(num.trim())).filter(Boolean);
 
     const updates: any = {};
     
@@ -128,8 +128,7 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     if (alertType && recipients.length > 0) {
         let allSuccessful = true;
         for (const recipient of recipients) {
-            const formattedRecipient = formatPhoneNumber(recipient);
-            const sendResult = await sendWhatsAppMessage(alertType, formattedRecipient);
+            const sendResult = await sendWhatsAppMessage(alertType, recipient);
             if (!sendResult.success) {
                 allSuccessful = false;
             }
