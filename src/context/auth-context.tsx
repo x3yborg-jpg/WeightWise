@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   };
 
-  const reauthenticate = async (password?: string) => {
+  const reauthenticate = async () => {
     if (!user || !user.email) throw new Error("No user is signed in or user has no email.");
     const credential = EmailAuthProvider.credential(user.email, SECRET_PASSWORD);
     await reauthenticateWithCredential(user, credential);

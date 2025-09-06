@@ -11,15 +11,15 @@ import {
   SidebarFooter,
   useSidebar
 } from "@/components/ui/sidebar"
-import { Archive, LogOut, MapPin, Wifi, WifiOff, Bell, AlertCircle, Shield, User } from "lucide-react"
+import { Archive, LogOut, MapPin, Wifi, WifiOff, Bell, AlertCircle, Shield } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Link from 'next/link';
 import Image from "next/image";
-import { useAuth, UserRole } from "@/context/auth-context"
+import { useAuth } from "@/context/auth-context"
 import { useEffect, useState } from "react";
 import { onValue, ref, off } from "firebase/database";
 import { database } from "@/lib/firebase";
-import { useBins, type BinConfig } from "@/context/bin-context";
+import { useBins } from "@/context/bin-context";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
