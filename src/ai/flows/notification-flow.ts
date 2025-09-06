@@ -40,7 +40,7 @@ export async function sendWhatsAppMessage(templateName: 'level_alert' | 'weight_
         type: 'template',
         template: {
             name: templateName, 
-            language: { code: 'en_US' },
+            language: { code: 'en' },
         },
     };
 
@@ -99,21 +99,21 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
     const { level, weight, levelAlarmSent, weightAlarmSent, lastSeen } = binData;
 
     let updates: any = {};
-    let alertType: 'level' | 'weight' | null = null;
+    let alertType: 'level_alert' | 'weight_alert' | null = null;
     
     const isLevelThresholdExceeded = level >= warningThresholdLevel;
     const isWeightThresholdExceeded = weight >= warningThresholdWeight;
 
     // Check Level Threshold
     if (isLevelThresholdExceeded && !levelAlarmSent) {
-        alertType = 'level';
+        alertType = 'level_alert';
     } else if (!isLevelThresholdExceeded && levelAlarmSent) {
       updates.levelAlarmSent = false;
     }
     
     // Check Weight Threshold
     if (isWeightThresholdExceeded && !weightAlarmSent && !alertType) {
-        alertType = 'weight';
+        alertType = 'weight_alert';
     } else if (!isWeightThresholdExceeded && weightAlarmSent) {
       updates.weightAlarmSent = false;
     }
@@ -129,9 +129,9 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
         }
         
         if (allSuccessful) {
-            updates[`${alertType}AlarmSent`] = true;
+            updates[`${alertType.replace('_alert', 'AlarmSent')}`] = true;
             const logRef = ref(database, `alerts-log/${binId}`);
-            const message = alertType === 'level' 
+            const message = alertType === 'level_alert' 
                 ? `Level alert: ${binConfig.name} at ${binConfig.location} reached ${level.toFixed(1)}%`
                 : `Weight alert: ${binConfig.name} at ${binConfig.location} reached ${(weight / 1000).toFixed(1)}kg`;
             
@@ -141,7 +141,7 @@ export async function binDataAuditor(input: BinDataAuditorInput): Promise<{ stat
                 message: `⚠️ ${message}`,
             });
         } else {
-             console.error(`Failed to send ${alertType} alert for ${binId}, not setting flag.`);
+             console.error(`Failed to send ${alertType} for ${binId}, not setting flag.`);
         }
     }
     

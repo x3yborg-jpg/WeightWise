@@ -45,7 +45,7 @@ export async function POST(request: Request) {
             type: 'template',
             template: {
                 name: templateName, 
-                language: { code: 'en_US' },
+                language: { code: 'en' },
             },
         };
 
