@@ -14,7 +14,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Loader2, Settings, Clock, Percent, Weight, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Loader2, Settings, Clock, Percent, Weight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import {
@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/select"
 import { Slider } from './ui/slider';
 import { MAX_WEIGHT_G } from '@/hooks/use-loadcell-data';
-import { Separator } from './ui/separator';
 
 interface GlobalSettingsDialogProps {
   children: React.ReactNode;
@@ -47,9 +46,6 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
   const [notificationInterval, setNotificationInterval] = useState(settings.notificationInterval);
   const [warningThresholdLevel, setWarningThresholdLevel] = useState(settings.warningThresholdLevel);
   const [warningThresholdWeight, setWarningThresholdWeight] = useState(settings.warningThresholdWeight);
-  const [isTestSending, setIsTestSending] = useState(false);
-  const [testTemplate, setTestTemplate] = useState<'level_alert' | 'weight_alert' | null>(null);
-
 
   useEffect(() => {
     if(isDialogOpen) {
@@ -72,41 +68,6 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
   const handleDialogStateChange = (open: boolean) => {
     setIsDialogOpen(open);
   };
-
-  const handleTestMessage = async (template: 'level_alert' | 'weight_alert') => {
-    setIsTestSending(true);
-    setTestTemplate(template);
-    try {
-      const response = await fetch('/api/send-test-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ templateName: template }),
-      });
-      const result = await response.json();
-
-      if (response.ok) {
-          toast({
-              title: "Test Message Sent",
-              description: result.message || `Test message using '${template}' sent.`
-          });
-      } else {
-          toast({
-              title: "Test Message Failed",
-              description: result.message || "Could not send test message. Check logs.",
-              variant: 'destructive',
-          });
-      }
-    } catch (error) {
-        toast({
-            title: "Test Message Failed",
-            description: "An unexpected error occurred. Check the browser console and server logs.",
-            variant: 'destructive',
-        });
-    } finally {
-        setIsTestSending(false);
-        setTestTemplate(null);
-    }
-  }
   
   return (
     <Dialog open={isDialogOpen} onOpenChange={handleDialogStateChange}>
@@ -118,7 +79,7 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
             Global Application Settings
           </DialogTitle>
           <DialogDescription>
-            Manage warning thresholds, alert frequency, and test notifications.
+            Manage warning thresholds and alert frequency for all bins.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 py-4">
@@ -186,24 +147,6 @@ export function GlobalSettingsDialog({ children }: GlobalSettingsDialogProps) {
             </Select>
             <p className="text-xs text-muted-foreground">How often to repeat dashboard warnings for bins with high levels or weights.</p>
           </div>
-          <Separator />
-           <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                WhatsApp Notification Test
-            </Label>
-             <p className="text-xs text-muted-foreground">Click a button to send a test message to all configured recipients.</p>
-             <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => handleTestMessage('level_alert')} disabled={isTestSending}>
-                    {isTestSending && testTemplate === 'level_alert' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
-                    Send Level Alert Test
-                </Button>
-                 <Button variant="secondary" onClick={() => handleTestMessage('weight_alert')} disabled={isTestSending}>
-                    {isTestSending && testTemplate === 'weight_alert' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Weight className="mr-2 h-4 w-4" />}
-                    Send Weight Alert Test
-                </Button>
-            </div>
-            </div>
         </div>
         <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
