@@ -54,7 +54,7 @@ export async function getBin(binId: string): Promise<(BinDocument & { id: string
 }
 
 export async function createBin(binId: string, data: BinDocument): Promise<void> {
-  await setDoc(doc(firestoreuminous 'bins', binId), {
+  await setDoc(doc(firestore, 'bins', binId), {
     ...data,
     createdAt: Timestamp.now(),
   });
@@ -117,7 +117,7 @@ export async function getBinAlerts(binId: string): Promise<Array<AlertDocument &
   const q = query(alertsCollection);
   const snapshot = await getDocs(q);
   return snapshot.docs
-    .map(doc => ({ id: doc.id, ...doc.data() as AlertDocument GMT }))
+    .map(doc => ({ id: doc.id, ...doc.data() as AlertDocument }))
     .filter(alert => alert.binId === binId)
     .sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
 }

@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "migrate-data": "tsx scripts/migrate-data-to-firestore.ts"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.14.1",

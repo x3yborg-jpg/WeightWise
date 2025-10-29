@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { type LoadCellData } from '@/hooks/use-loadcell-data';
 import { WeightDisplay } from '@/components/weight-display';
 import { LevelGauge } from '@/components/level-gauge';
@@ -81,7 +81,7 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
   const hasTriggeredInitialLevelWarning = useRef(false);
   const hasTriggeredInitialWeightWarning = useRef(false);
 
-  const triggerLevelWarning = () => {
+  const triggerLevelWarning = useCallback(() => {
     const currentBin = bins.find(b => b.id === binId);
     if (!currentBin || !data) return;
 
@@ -100,9 +100,9 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
         variant: 'destructive',
         duration: 3000,
     });
-  };
+  }, [bins, binId, data, toast]);
 
-  const triggerWeightWarning = () => {
+  const triggerWeightWarning = useCallback(() => {
     const currentBin = bins.find(b => b.id === binId);
     if (!currentBin || !data) return;
 
@@ -121,7 +121,7 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
         variant: 'destructive',
         duration: 3000,
     });
-  };
+  }, [bins, binId, data, toast]);
 
   // Effect for Level Alarms
   useEffect(() => {
@@ -138,6 +138,7 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
         hasTriggeredInitialLevelWarning.current = false;
         if (levelWarningIntervalRef.current) {
             clearInterval(levelWarningIntervalRef.current);
+            levelWarningIntervalRef.current = null;
         }
     }
 
@@ -146,7 +147,7 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
             clearInterval(levelWarningIntervalRef.current);
         }
     };
-  }, [isLevelAlarmActive, binId, settings.notificationInterval, bins, data]);
+  }, [isLevelAlarmActive, settings.notificationInterval, triggerLevelWarning]);
 
   // Effect for Weight Alarms
   useEffect(() => {
@@ -163,6 +164,7 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
         hasTriggeredInitialWeightWarning.current = false;
         if (weightWarningIntervalRef.current) {
             clearInterval(weightWarningIntervalRef.current);
+            weightWarningIntervalRef.current = null;
         }
     }
 
@@ -171,7 +173,7 @@ export function Dashboard({ binId, data, history, isConnected, isLevelAlarmActiv
             clearInterval(weightWarningIntervalRef.current);
         }
     };
-  }, [isWeightAlarmActive, binId, settings.notificationInterval, bins, data]);
+  }, [isWeightAlarmActive, settings.notificationInterval, triggerWeightWarning]);
 
 
   const ConnectionStatusAlert = () => (

@@ -11,7 +11,7 @@ import {
   SidebarFooter,
   useSidebar
 } from "@/components/ui/sidebar"
-import { Archive, LogOut, MapPin, Wifi, WifiOff, Bell, AlertCircle, Shield } from "lucide-react"
+import { Archive, LogOut, MapPin, Wifi, WifiOff, Bell, AlertCircle, Shield, Search, X } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Link from 'next/link';
 import Image from "next/image";
@@ -27,6 +27,7 @@ import { GlobalSettingsDialog } from "./global-settings-dialog";
 import { AdminPanelDialog } from "./admin-panel";
 import { cn } from "@/lib/utils";
 import { HEARTBEAT_TIMEOUT } from "@/hooks/use-loadcell-data"
+import { Input } from "./ui/input"
 
 
 interface BinState {
@@ -44,6 +45,7 @@ export function AppSidebar() {
   const { logout, userRole } = useAuth();
   const { isMobile, setOpenMobile } = useSidebar();
   const [allBinsState, setAllBinsState] = useState<AllBinsState>({});
+  const [searchQuery, setSearchQuery] = useState("");
   const { bins } = useBins();
 
   useEffect(() => {
@@ -111,6 +113,18 @@ export function AppSidebar() {
         level: allBinsState[bin.id]?.level ?? 0,
     }));
 
+  // Filter bins based on search query
+  const filteredBins = bins.filter(bin => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    const matchesName = bin.name.toLowerCase().includes(query);
+    const matchesLocation = bin.location.toLowerCase().includes(query);
+    const matchesDeviceId = bin.deviceId.toLowerCase().includes(query);
+    
+    return matchesName || matchesLocation || matchesDeviceId;
+  });
+
   const handleLinkClick = () => {
     if (isMobile) {
       setOpenMobile(false);
@@ -169,9 +183,51 @@ export function AppSidebar() {
                 </SheetContent>
             </Sheet>
           </div>
+          
+          {/* Search Bar */}
+          <div className="px-4 pt-4 pb-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search bins..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9 h-9 bg-muted/30 border-sidebar-border hover:bg-muted/50 focus-visible:bg-muted/50 transition-colors"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 hover:bg-muted"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+            {searchQuery && (
+              <p className="text-xs text-muted-foreground mt-1.5 px-1">
+                {filteredBins.length} {filteredBins.length === 1 ? 'bin' : 'bins'} found
+              </p>
+            )}
+          </div>
         </SidebarHeader>
         <SidebarMenu>
-          {bins.map(bin => {
+          {filteredBins.length === 0 ? (
+            <div className="px-4 py-8 text-center">
+              <p className="text-sm text-muted-foreground">No bins found matching "{searchQuery}"</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSearchQuery("")}
+                className="mt-2"
+              >
+                Clear search
+              </Button>
+            </div>
+          ) : (
+            filteredBins.map(bin => {
             const state = allBinsState[bin.id];
             const isOnline = state?.isOnline ?? false;
             const isActive = pathname === `/bin/${bin.id}`;
@@ -207,7 +263,7 @@ export function AppSidebar() {
                     </Link>
                 </SidebarMenuItem>
             )
-          })}
+          }))}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>

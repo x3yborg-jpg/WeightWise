@@ -1,94 +1,90 @@
 
 import { NextResponse } from 'next/server';
-import fetch from 'node-fetch';
-import { database } from '@/lib/firebase';
-import { ref, get } from 'firebase/database';
+import { getAdminFirestore } from '@/lib/firebase-admin';
+import { createWhatsAppService, formatPhoneNumber } from '@/lib/whatsapp-service';
+import { sanitizeForFirestore } from '@/lib/firestore-utils';
 
-function formatPhoneNumber(number: string): string {
-    const cleaned = number.replace(/\D/g, '');
-    if (cleaned.startsWith('91')) {
-        return cleaned;
-    }
-    return `91${cleaned}`;
-}
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-    const { WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID } = process.env;
-    const body = await request.json();
-    const { templateName } = body;
+    try {
+        const body = await request.json();
+        const { templateName } = body;
 
-    if (!templateName) {
-        return NextResponse.json({ success: false, message: "Template name is required." }, { status: 400 });
-    }
-
-    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) {
-      const errorMessage = "WhatsApp API credentials are not fully configured in .env file.";
-      console.error(`[API Route Error] ${errorMessage}`);
-      return NextResponse.json({ success: false, message: errorMessage }, { status: 500 });
-    }
-
-    // Fetch recipients from Firebase Realtime Database
-    const settingsRef = ref(database, 'global-settings/recipientNumbers');
-    const settingsSnap = await get(settingsRef);
-    const recipientNumbers = settingsSnap.exists() ? settingsSnap.val() : '';
-    
-    const recipients = recipientNumbers.split(',').map((num: string) => formatPhoneNumber(num.trim())).filter(Boolean);
-
-    if (recipients.length === 0) {
-      const errorMessage = "No recipient phone numbers configured in the Admin Panel.";
-       console.error(`[API Route Error] ${errorMessage}`);
-      return NextResponse.json({ success: false, message: errorMessage }, { status: 400 });
-    }
-
-    const url = `https://graph.facebook.com/v22.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
-    
-    let allSuccessful = true;
-    let firstError = null;
-
-    for (const recipient of recipients) {
-        const payload = {
-            messaging_product: 'whatsapp',
-            to: recipient,
-            type: 'template',
-            template: {
-                name: templateName, 
-                language: { code: 'en' },
-            },
-        };
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload),
-            });
-            const responseData: any = await response.json();
-            if (!response.ok) {
-                allSuccessful = false;
-                const errorMessage = responseData.error?.message || `HTTP error! Status: ${response.status}`;
-                console.error(`Failed to send WhatsApp message to ${recipient}:`, errorMessage, `(Code: ${responseData.error?.code})`);
-                if (!firstError) {
-                    firstError = `Error Code ${responseData.error?.code}: ${errorMessage}`;
-                }
-            } else {
-                console.log(`Successfully sent WhatsApp message to ${recipient}:`, responseData.messages[0]?.id);
-            }
-        } catch (error: any) {
-            allSuccessful = false;
-            const errorMessage = error.message || 'An unknown error occurred.';
-            console.error(`Error sending WhatsApp message to ${recipient}:`, errorMessage);
-            if (!firstError) {
-                firstError = errorMessage;
-            }
+        if (!templateName) {
+            return NextResponse.json({ success: false, message: "Template name is required." }, { status: 400 });
         }
-    }
-    
-    if (allSuccessful) {
-        return NextResponse.json({ success: true, message: `Test message sent to ${recipients.length} recipient(s).` });
-    } else {
-        return NextResponse.json({ success: false, message: firstError || 'One or more messages failed to send. Check server logs.' }, { status: 500 });
+
+        // Create WhatsApp service
+        const whatsappService = createWhatsAppService();
+        
+        if (!whatsappService) {
+          const errorMessage = "WhatsApp API credentials are not fully configured in .env file.";
+          console.error(`[API Route Error] ${errorMessage}`);
+          return NextResponse.json({ success: false, message: errorMessage }, { status: 500 });
+        }
+
+        // Fetch recipients from Firestore
+        const adminFirestore = getAdminFirestore();
+        const settingsDoc = await adminFirestore.collection('system-settings').doc('global').get();
+        const recipientNumbers = settingsDoc.exists && settingsDoc.data()?.recipientNumbers ? settingsDoc.data()!.recipientNumbers : '';
+        
+        const recipients = recipientNumbers.split(',').map((num: string) => formatPhoneNumber(num.trim())).filter(Boolean);
+
+        if (recipients.length === 0) {
+          const errorMessage = "No recipient phone numbers configured in the Admin Panel.";
+           console.error(`[API Route Error] ${errorMessage}`);
+          return NextResponse.json({ success: false, message: errorMessage }, { status: 400 });
+        }
+
+        console.log(`Sending test message '${templateName}' to ${recipients.length} recipient(s)...`);
+
+        // Send using production service with retry logic
+        const result = await whatsappService.sendBulkTemplateMessage(recipients, templateName, 'en');
+        
+        console.log(`WhatsApp send result:`, result);
+
+        // Log results
+        const admin = await import('firebase-admin');
+        for (const res of result.results) {
+          const logData = sanitizeForFirestore({
+            recipient: res.recipient,
+            template: templateName,
+            success: res.success,
+            messageId: res.messageId,
+            error: res.error,
+            isTest: true,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          await adminFirestore.collection('whatsapp-logs').add(logData);
+        }
+
+        const successCount = result.results.filter(r => r.success).length;
+        const failCount = result.results.filter(r => !r.success).length;
+
+        if (result.success) {
+            console.log(`✅ Test message sent successfully to ${successCount} recipient(s)`);
+            return NextResponse.json({ 
+              success: true, 
+              message: `Test message sent successfully to ${successCount}/${recipients.length} recipient(s)!`,
+              details: result.results,
+            }, { status: 200 });
+        } else {
+            const firstError = result.results.find(r => !r.success)?.error || 'Unknown error';
+            console.error(`❌ Test message failed: ${firstError}`);
+            return NextResponse.json({ 
+              success: false, 
+              message: `Failed to send to ${failCount} recipient(s). Error: ${firstError}`,
+              details: result.results,
+            }, { status: 200 }); // Return 200 with success: false
+        }
+    } catch (error: any) {
+        console.error('Unexpected error in send-test-message:', error);
+        return NextResponse.json({ 
+            success: false, 
+            message: `Server error: ${error.message || 'Unknown error'}`,
+            error: error.stack,
+        }, { status: 500 });
     }
 }

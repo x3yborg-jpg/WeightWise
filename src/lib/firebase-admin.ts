@@ -42,3 +42,7 @@ export function getAdminDb() {
   return admin.database(initApp());
 }
 
+export function getAdminFirestore() {
+  return admin.firestore(initApp());
+}
+

@@ -10,8 +10,8 @@ import {
     EmailAuthProvider, 
     reauthenticateWithCredential,
 } from 'firebase/auth';
-import { auth, database } from '@/lib/firebase';
-import { ref, get, set } from 'firebase/database';
+import { auth, firestore } from '@/lib/firebase';
+import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 // --- IMPORTANT ---
@@ -54,14 +54,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
-        // Fetch user role from Realtime Database
-        const roleRef = ref(database, `users/${user.uid}/role`);
-        const snapshot = await get(roleRef);
+        // Fetch user role from Firestore
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const snapshot = await getDoc(userDocRef);
         if (snapshot.exists()) {
-          setUserRole(snapshot.val());
+          const userData = snapshot.data();
+          setUserRole(userData.role || 'user');
+          // Update last login time
+          await setDoc(userDocRef, { 
+            lastLoginAt: Timestamp.now() 
+          }, { merge: true });
         } else {
           // Default to 'user' role if not set
-          await set(roleRef, 'user');
+          await setDoc(userDocRef, {
+            email: user.email || '',
+            role: 'user',
+            createdAt: Timestamp.now(),
+            lastLoginAt: Timestamp.now(),
+          });
           setUserRole('user');
         }
       } else {

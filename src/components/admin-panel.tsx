@@ -13,12 +13,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Shield, MessageSquare, AlertTriangle, Weight, Trash2, UserPlus, Crown } from 'lucide-react';
+import { Loader2, Shield, MessageSquare, AlertTriangle, Weight, Trash2, UserPlus, Crown, Edit2, Check, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { useAuth } from '@/context/auth-context';
 import { Separator } from './ui/separator';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AdminPanelDialogProps {
   children: React.ReactNode;
@@ -106,24 +107,35 @@ export function AdminPanelDialog({ children }: AdminPanelDialogProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ templateName: template }),
       });
-      const result = await response.json();
 
-      if (response.ok) {
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error('Server returned non-JSON response. Check server logs.');
+      }
+
+      const result = await response.json();
+      console.log('WhatsApp test result:', result);
+
+      if (response.ok && result.success) {
           toast({
-              title: "Test Message Sent",
-              description: result.message || `Test message using '${template}' sent.`
+              title: "✅ Test Message Sent",
+              description: result.message || `Test message sent successfully!`,
           });
       } else {
           toast({
-              title: "Test Message Failed",
-              description: result.message || "Could not send test message. Check logs.",
+              title: "❌ Test Message Failed",
+              description: result.message || result.error || "Could not send test message. Check logs.",
               variant: 'destructive',
           });
       }
-    } catch (error) {
+    } catch (error: any) {
+        console.error('Test message error:', error);
         toast({
-            title: "Test Message Failed",
-            description: "An unexpected error occurred. Check the browser console and server logs.",
+            title: "❌ Test Message Failed",
+            description: error.message || "An unexpected error occurred. Check the browser console and server logs.",
             variant: 'destructive',
         });
     } finally {
@@ -140,7 +152,7 @@ export function AdminPanelDialog({ children }: AdminPanelDialogProps) {
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>{children}</SheetTrigger>
-      <SheetContent side="right" className="w-full sm:max-w-lg">
+      <SheetContent side="right" className="w-full sm:max-w-lg flex flex-col">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
@@ -150,7 +162,8 @@ export function AdminPanelDialog({ children }: AdminPanelDialogProps) {
             Manage administrator-level settings for the application.
           </SheetDescription>
         </SheetHeader>
-        <div className="grid gap-6 py-4">
+        <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="grid gap-6 py-4">
            <div className="space-y-2">
                 <Label htmlFor="recipient-numbers" className="text-sm font-medium">
                     WhatsApp Alert Recipients
@@ -234,101 +247,169 @@ export function AdminPanelDialog({ children }: AdminPanelDialogProps) {
                 </Button>
               </div>
 
-              <div className="rounded-md border divide-y">
-                {usersLoading ? (
-                  <div className="p-4 text-sm text-muted-foreground">Loading users...</div>
-                ) : users.length === 0 ? (
-                  <div className="p-4 text-sm text-muted-foreground">No users found.</div>
-                ) : (
-                  users.map(u => (
-                    <div key={u.uid} className="p-3 flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        {editingUser === u.uid ? (
-                          <Input 
-                            value={editingName} 
-                            onChange={(e) => setEditingName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                fetch('/api/admin/users', {
-                                  method: 'PATCH',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ uid: u.uid, name: editingName || null }),
-                                }).then(async res => {
+              <div className="rounded-md border">
+                <ScrollArea className="max-h-[400px]">
+                  <div className="divide-y">
+                    {usersLoading ? (
+                      <div className="p-4 text-sm text-muted-foreground">Loading users...</div>
+                    ) : users.length === 0 ? (
+                      <div className="p-4 text-sm text-muted-foreground">No users found.</div>
+                    ) : (
+                      users.map(u => (
+                    <div key={u.uid} className="p-3">
+                      {editingUser === u.uid ? (
+                        // Edit Mode - Mobile Friendly
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <Label htmlFor={`edit-name-${u.uid}`} className="text-xs text-muted-foreground">Edit Name</Label>
+                            <Input 
+                              id={`edit-name-${u.uid}`}
+                              value={editingName} 
+                              onChange={(e) => setEditingName(e.target.value)}
+                              placeholder="Enter user name"
+                              autoFocus
+                              className="h-9"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              className="flex-1"
+                              onClick={async () => {
+                                try {
+                                  setMutating(true);
+                                  const res = await fetch('/api/admin/users', {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ uid: u.uid, name: editingName || null }),
+                                  });
                                   const data = await res.json();
                                   if (!res.ok) throw new Error(data.error);
                                   setEditingUser(null);
                                   setEditingName('');
                                   await fetchUsers();
-                                  toast({ title: 'Name updated' });
-                                }).catch((e: any) => toast({ title: 'Update failed', description: e.message, variant: 'destructive' }));
-                              } else if (e.key === 'Escape') {
+                                  toast({ title: 'Name updated', description: 'User name saved successfully' });
+                                } catch (e: any) {
+                                  toast({ title: 'Update failed', description: e.message, variant: 'destructive' });
+                                } finally {
+                                  setMutating(false);
+                                }
+                              }}
+                              disabled={mutating}
+                            >
+                              {mutating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                              Save
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
                                 setEditingUser(null);
                                 setEditingName('');
-                              }
-                            }}
-                            autoFocus
-                            className="h-7 text-sm"
-                          />
-                        ) : (
-                          <div>
-                            <div className="font-medium truncate cursor-pointer hover:text-primary" onClick={() => { setEditingUser(u.uid); setEditingName(u.name || ''); }}>
-                              {getUserDisplay(u)}
-                            </div>
-                            <div className="text-xs text-muted-foreground capitalize">{u.role}</div>
+                              }}
+                              disabled={mutating}
+                            >
+                              <X className="mr-2 h-4 w-4" />
+                              Cancel
+                            </Button>
                           </div>
-                        )}
+                        </div>
+                      ) : (
+                        // View Mode - Mobile Friendly
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate">{getUserDisplay(u)}</div>
+                              <div className="text-xs text-muted-foreground capitalize flex items-center gap-1">
+                                {u.role === 'admin' && <Crown className="h-3 w-3" />}
+                                {u.role}
+                              </div>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => { 
+                                setEditingUser(u.uid); 
+                                setEditingName(u.name || ''); 
+                              }}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              variant={u.role === 'admin' ? 'secondary' : 'outline'} 
+                              size="sm"
+                              className="flex-1 min-w-[120px]"
+                              onClick={async () => {
+                                try {
+                                  setMutating(true);
+                                  const newRole = u.role === 'admin' ? 'user' : 'admin';
+                                  const res = await fetch('/api/admin/users', {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ uid: u.uid, role: newRole }),
+                                  });
+                                  const data = await res.json();
+                                  if (!res.ok) throw new Error(data.error || 'Failed to update role');
+                                  await fetchUsers();
+                                  toast({ title: 'Role updated', description: `User is now ${newRole}` });
+                                } catch (e: any) {
+                                  toast({ title: 'Update failed', description: e.message, variant: 'destructive' });
+                                } finally {
+                                  setMutating(false);
+                                }
+                              }}
+                              disabled={mutating}
+                            >
+                              {u.role === 'admin' ? (
+                                <>Remove Admin</>
+                              ) : (
+                                <>Make Admin</>
+                              )}
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              className="flex-1 min-w-[100px]"
+                              onClick={async () => {
+                                if (!confirm(`Remove ${getUserDisplay(u)}?`)) return;
+                                try {
+                                  setMutating(true);
+                                  const res = await fetch('/api/admin/users', {
+                                    method: 'DELETE',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ uid: u.uid }),
+                                  });
+                                  const data = await res.json();
+                                  if (!res.ok) throw new Error(data.error || 'Failed to delete user');
+                                  await fetchUsers();
+                                  toast({ title: 'User removed', description: 'User deleted successfully' });
+                                } catch (e: any) {
+                                  toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
+                                } finally {
+                                  setMutating(false);
+                                }
+                              }}
+                              disabled={mutating}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant={u.role === 'admin' ? 'secondary' : 'outline'} size="sm" onClick={async () => {
-                          try {
-                            setMutating(true);
-                            const newRole = u.role === 'admin' ? 'user' : 'admin';
-                            const res = await fetch('/api/admin/users', {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ uid: u.uid, role: newRole }),
-                            });
-                            const data = await res.json();
-                            if (!res.ok) throw new Error(data.error || 'Failed to update role');
-                            await fetchUsers();
-                            toast({ title: 'Role updated', description: `${u.email} is now ${newRole}` });
-                          } catch (e: any) {
-                            toast({ title: 'Update failed', description: e.message, variant: 'destructive' });
-                          } finally {
-                            setMutating(false);
-                          }
-                        }}>
-                          {u.role === 'admin' ? 'Remove admin' : 'Make admin'}
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={async () => {
-                          if (!confirm('Remove this user?')) return;
-                          try {
-                            setMutating(true);
-                            const res = await fetch('/api/admin/users', {
-                              method: 'DELETE',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ uid: u.uid }),
-                            });
-                            const data = await res.json();
-                            if (!res.ok) throw new Error(data.error || 'Failed to delete user');
-                            await fetchUsers();
-                            toast({ title: 'User removed', description: u.email || u.uid });
-                          } catch (e: any) {
-                            toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
-                          } finally {
-                            setMutating(false);
-                          }
-                        }}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
+                    ))
+                  )}
+                  </div>
+                </ScrollArea>
               </div>
             </div>
-        </div>
-        <div className="flex justify-end gap-2 pb-2">
+          </div>
+        </ScrollArea>
+        <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={() => setIsOpen(false)}>Close</Button>
           <Button type="button" onClick={handleSave} disabled={loading || isTestSending}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

@@ -3,7 +3,7 @@
 
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, use } from 'react';
 import { Dashboard } from '@/components/dashboard';
 import { Clock, Settings } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -16,13 +16,13 @@ import { formatDistanceToNow } from 'date-fns';
 import { MobileHeader } from '@/components/mobile-header';
 
 interface BinPageProps {
-    params: {
+    params: Promise<{
         binId: string;
-    }
+    }>
 }
 
 export default function BinPage({ params }: BinPageProps) {
-  const { binId } = params;
+  const { binId } = use(params);
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { bins, loading: binsLoading } = useBins();

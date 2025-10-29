@@ -2,8 +2,9 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { ref, onValue, set, get, off, remove } from "firebase/database";
-import { database } from "@/lib/firebase";
+import { ref, remove } from "firebase/database";
+import { database, firestore } from "@/lib/firebase";
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore";
 
 export interface BinConfig {
     id: string;
@@ -27,17 +28,27 @@ const INITIAL_BINS_CONFIG: Omit<BinConfig, 'id'>[] = [
 ];
 
 async function initializeBinConfig() {
-    const binConfigRef = ref(database, 'bins-config');
-    const snapshot = await get(binConfigRef);
-    if (!snapshot.exists()) {
-        console.log("No bin configuration found in Firebase, initializing with default.");
-        await set(binConfigRef, {
-            "bin1": INITIAL_BINS_CONFIG[0]
+    const binsCollection = collection(firestore, 'bins');
+    const binDoc = doc(binsCollection, 'bin1');
+    
+    // Check if we need to initialize with default bin
+    const snapshot = await new Promise<any>((resolve) => {
+        const unsubscribe = onSnapshot(binsCollection, (snap) => {
+            unsubscribe();
+            resolve(snap);
+        });
+    });
+    
+    if (snapshot.empty) {
+        console.log("No bin configuration found in Firestore, initializing with default.");
+        await setDoc(binDoc, {
+            ...INITIAL_BINS_CONFIG[0],
+            createdAt: Timestamp.now(),
         });
         return [{ id: "bin1", ...INITIAL_BINS_CONFIG[0] }];
     }
-    const data = snapshot.val();
-    return Object.keys(data).map(key => ({ id: key, ...data[key] }));
+    
+    return snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
 }
 
 export function BinProvider({ children }: { children: ReactNode }) {
@@ -45,24 +56,28 @@ export function BinProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-     const binConfigRef = ref(database, 'bins-config');
+     const binsCollection = collection(firestore, 'bins');
 
      initializeBinConfig().then(initialBins => {
          setBins(initialBins);
          setLoading(false);
 
-         const listener = onValue(binConfigRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.val();
-                const updatedBins = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+         const unsubscribe = onSnapshot(binsCollection, (snapshot) => {
+            if (!snapshot.empty) {
+                const updatedBins = snapshot.docs.map(doc => ({ 
+                    id: doc.id, 
+                    ...doc.data() as Omit<BinConfig, 'id'> 
+                }));
                 setBins(updatedBins);
             } else {
                 setBins([]); // Handle case where all bins are deleted
             }
+        }, (error) => {
+            console.error("Error listening to bins:", error);
         });
 
          return () => {
-            off(binConfigRef, 'value', listener);
+            unsubscribe();
         };
      }).catch(error => {
         console.error("Error initializing bin config:", error);
@@ -73,23 +88,28 @@ export function BinProvider({ children }: { children: ReactNode }) {
 
   const updateBin = async (binId: string, data: Partial<Omit<BinConfig, 'id' | 'deviceId' | 'lastHeartbeat'>>) => {
     setLoading(true);
-    const binRef = ref(database, `bins-config/${binId}`);
-    const snapshot = await get(binRef);
-    if(snapshot.exists()) {
-        const currentData = snapshot.val();
-        await update(binRef, { ...currentData, ...data });
+    try {
+      const binRef = doc(firestore, 'bins', binId);
+      await updateDoc(binRef, data as any);
+    } catch (error) {
+      console.error("Error updating bin:", error);
     }
     setLoading(false);
   };
   
   const deleteBin = async (binId: string) => {
       setLoading(true);
-      // Delete from config
-      const binConfigRef = ref(database, `bins-config/${binId}`);
-      await remove(binConfigRef);
-      // Delete the actual bin data
-      const binDataRef = ref(database, binId);
-      await remove(binDataRef);
+      try {
+        // Delete from Firestore config
+        const binConfigRef = doc(firestore, 'bins', binId);
+        await deleteDoc(binConfigRef);
+        
+        // Delete the actual bin data from Realtime Database
+        const binDataRef = ref(database, binId);
+        await remove(binDataRef);
+      } catch (error) {
+        console.error("Error deleting bin:", error);
+      }
       setLoading(false);
   }
 
