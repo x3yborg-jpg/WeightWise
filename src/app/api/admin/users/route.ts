@@ -43,13 +43,14 @@ export async function POST(request: Request) {
     const email = pinToEmail(pin);
     const adminAuth = getAdminAuth();
     const adminFirestore = getAdminFirestore();
+    const admin = await import('firebase-admin');
     const user = await adminAuth.createUser({ email, password: SECRET_PASSWORD, emailVerified: false, disabled: false });
     const roleValue = role === 'admin' ? 'admin' : 'user';
     await adminFirestore.collection('users').doc(user.uid).set({ 
       email: user.email,
       role: roleValue, 
       name: name || null,
-      createdAt: adminFirestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     return NextResponse.json({ uid: user.uid, email: user.email, name: name || null, role: roleValue }, { status: 201 });
   } catch (e: any) {
